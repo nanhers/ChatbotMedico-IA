@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.HttpOverrides;
+Ôªøusing Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,13 +10,13 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Configurar ASP.NET Core para que confÌe en el Proxy Inverso de Google Cloud Run
+// Configurar ASP.NET Core para que conf√≠e en el Proxy Inverso de Google Cloud Run
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-// ASEG⁄RATE DE QUE ESTA LÕNEA SIGA COMENTADA O ELIMINADA:
+// ASEG√öRATE DE QUE ESTA L√çNEA SIGA COMENTADA O ELIMINADA:
 // app.UseHttpsRedirection();
 
 app.UseAuthorization();

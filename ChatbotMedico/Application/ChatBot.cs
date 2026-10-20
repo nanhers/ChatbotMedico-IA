@@ -9,7 +9,6 @@ namespace ChatbotMedico.Application;
 
 public class ChatBot
 {
-    private const string FixedTimeZone = "America/Mexico_City";
     private static readonly TimeSpan DefaultDuration = TimeSpan.FromMinutes(45);
 
     private readonly ILlmClient _llm;
@@ -137,8 +136,7 @@ public class ChatBot
             CalendarId = args.CalendarId,
             Summary = args.Summary,
             StartTime = start.ToString("O"),
-            EndTime = start.Add(DefaultDuration).ToString("O"),
-            TimeZone = FixedTimeZone
+            EndTime = start.Add(DefaultDuration).ToString("O")
         };
 
         return await _calendarService.CreateEventAsync(createReq);

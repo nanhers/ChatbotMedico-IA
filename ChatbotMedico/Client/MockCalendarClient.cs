@@ -4,6 +4,18 @@ namespace ChatbotMedico.Client;
 
 public sealed class MockCalendarClient : ICalendarClient
 {
+    private const string DefaultTimeZone = "America/Mexico_City";
+
+    public Task<string> GetCalendarTimeZoneAsync(string calendarId)
+    {
+        if (string.IsNullOrWhiteSpace(calendarId))
+        {
+            throw new ArgumentException("calendarId es obligatorio.", nameof(calendarId));
+        }
+
+        return Task.FromResult(DefaultTimeZone);
+    }
+
     // Persistencia simple entre requests en ambiente local.
     // Es thread-safe y no depende del scope del request.
     private static readonly object Gate = new();

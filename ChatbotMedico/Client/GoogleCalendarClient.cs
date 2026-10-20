@@ -31,6 +31,27 @@ public sealed class GoogleCalendarClient : ICalendarClient
         });
     }
 
+    public async Task<string> GetCalendarTimeZoneAsync(string calendarId)
+    {
+        if (string.IsNullOrWhiteSpace(calendarId))
+        {
+            throw new ArgumentException("calendarId es obligatorio.", nameof(calendarId));
+        }
+
+        CalendarService svc = await CreateCalendarServiceAsync();
+
+        // CalendarList.Get suele funcionar tanto para 'primary' como para IDs tipo correo.
+        CalendarListEntry entry = await svc.CalendarList.Get(calendarId).ExecuteAsync();
+        string tz = entry.TimeZone?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(tz))
+        {
+            throw new InvalidOperationException($"No se pudo resolver la zona horaria del calendario '{calendarId}'.");
+        }
+
+        return tz;
+    }
+
     public async Task<IReadOnlyList<CalendarEventInfo>> ListEventsAsync(
         string calendarId,
         DateTimeOffset windowStart,

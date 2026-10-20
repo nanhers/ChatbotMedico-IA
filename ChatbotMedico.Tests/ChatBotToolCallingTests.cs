@@ -77,7 +77,7 @@ public sealed class ChatBotToolCallingTests
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
                 r.CalendarId == "nanhe2005@gmail.com" &&
                 r.Summary == "Nancy" &&
-                r.TimeZone == "America/Mexico_City" &&
+                string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-16T10:00:00") &&
                 r.EndTime.StartsWith("2026-10-16T10:45:00"))))
             .ReturnsAsync(new CreateCalendarEventResponseDto

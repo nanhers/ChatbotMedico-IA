@@ -8,28 +8,60 @@ namespace ChatbotMedico.Tests;
 
 public sealed class CalendarServiceTests
 {
+    private const string DefaultCalendarId = "primary";
+    private const string DefaultTimeZone = "America/Mexico_City";
+
     private static CalendarService CreateSut(Mock<ICalendarClient> clientMock)
     {
         var logger = Mock.Of<ILogger<CalendarService>>();
         return new CalendarService(clientMock.Object, logger);
     }
 
+    private static void SetupCalendarTimeZone(Mock<ICalendarClient> clientMock, string calendarId = DefaultCalendarId, string timeZone = DefaultTimeZone)
+    {
+        clientMock
+            .Setup(c => c.GetCalendarTimeZoneAsync(calendarId))
+            .ReturnsAsync(timeZone);
+    }
+
     [Fact]
-    public async Task CreateEventAsync_WhenTimeZoneIsEmpty_ThrowsValidationProblemException()
+    public async Task CreateEventAsync_WhenTimeZoneIsEmpty_DoesNotFailValidation_ButResolvesFromCalendarId()
     {
         var clientMock = new Mock<ICalendarClient>(MockBehavior.Strict);
+
+        var start = DateTimeOffset.Parse("2026-10-09T10:00:00-06:00");
+        var end = DateTimeOffset.Parse("2026-10-09T10:45:00-06:00");
+
+        SetupCalendarTimeZone(clientMock);
+
+        clientMock
+            .Setup(c => c.ListEventsAsync(DefaultCalendarId, start, end, DefaultTimeZone))
+            .ReturnsAsync(Array.Empty<CalendarEventInfo>());
+
+        clientMock
+            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone))
+            .ReturnsAsync(new CalendarEventInfo(
+                EventId: "evt123",
+                CalendarId: DefaultCalendarId,
+                Summary: "Cita",
+                HtmlLink: "https://example.invalid",
+                Interval: new CalendarEventInterval(start, end)));
+
         var sut = CreateSut(clientMock);
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = "primary",
+            CalendarId = DefaultCalendarId,
             Summary = "Cita",
-            StartTime = "2026-10-09T10:00:00-06:00",
-            EndTime = "2026-10-09T10:45:00-06:00",
+            StartTime = start.ToString("O"),
+            EndTime = end.ToString("O"),
             TimeZone = " "
         };
 
-        await Assert.ThrowsAsync<CalendarService.ValidationProblemException>(() => sut.CreateEventAsync(req));
+        var result = await sut.CreateEventAsync(req);
+
+        Assert.Equal(DefaultTimeZone, result.TimeZone);
+        clientMock.VerifyAll();
     }
 
     [Fact]
@@ -40,11 +72,11 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = "primary",
+            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = "2026-10-09T10:00:00-06:00",
             EndTime = "2026-10-09T10:00:00-06:00",
-            TimeZone = "America/Mexico_City"
+            TimeZone = null
         };
 
         await Assert.ThrowsAsync<CalendarService.ValidationProblemException>(() => sut.CreateEventAsync(req));
@@ -58,13 +90,15 @@ public sealed class CalendarServiceTests
         var start = DateTimeOffset.Parse("2026-10-09T10:00:00-06:00");
         var end = DateTimeOffset.Parse("2026-10-09T10:45:00-06:00");
 
+        SetupCalendarTimeZone(clientMock);
+
         clientMock
-            .Setup(c => c.ListEventsAsync("primary", start, end, "America/Mexico_City"))
+            .Setup(c => c.ListEventsAsync(DefaultCalendarId, start, end, DefaultTimeZone))
             .ReturnsAsync(new List<CalendarEventInfo>
             {
                 new(
                     EventId: "e1",
-                    CalendarId: "primary",
+                    CalendarId: DefaultCalendarId,
                     Summary: "Otro",
                     HtmlLink: null,
                     Interval: new CalendarEventInterval(
@@ -77,11 +111,11 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = "primary",
+            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
-            TimeZone = "America/Mexico_City"
+            TimeZone = null
         };
 
         await Assert.ThrowsAsync<CalendarService.ScheduleConflictException>(() => sut.CreateEventAsync(req));
@@ -97,15 +131,17 @@ public sealed class CalendarServiceTests
         var start = DateTimeOffset.Parse("2026-10-09T10:00:00-06:00");
         var end = DateTimeOffset.Parse("2026-10-09T10:45:00-06:00");
 
+        SetupCalendarTimeZone(clientMock);
+
         clientMock
-            .Setup(c => c.ListEventsAsync("primary", start, end, "America/Mexico_City"))
+            .Setup(c => c.ListEventsAsync(DefaultCalendarId, start, end, DefaultTimeZone))
             .ReturnsAsync(Array.Empty<CalendarEventInfo>());
 
         clientMock
-            .Setup(c => c.CreateEventAsync("primary", "Cita", start, end, "America/Mexico_City"))
+            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone))
             .ReturnsAsync(new CalendarEventInfo(
                 EventId: "evt123",
-                CalendarId: "primary",
+                CalendarId: DefaultCalendarId,
                 Summary: "Cita",
                 HtmlLink: "https://example.invalid",
                 Interval: new CalendarEventInterval(start, end)));
@@ -114,16 +150,16 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = "primary",
+            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
-            TimeZone = "America/Mexico_City"
+            TimeZone = null
         };
 
         var result = await sut.CreateEventAsync(req);
 
         Assert.Equal("evt123", result.EventId);
-        clientMock.Verify(c => c.CreateEventAsync("primary", "Cita", start, end, "America/Mexico_City"), Times.Once);
+        clientMock.Verify(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone), Times.Once);
     }
 }

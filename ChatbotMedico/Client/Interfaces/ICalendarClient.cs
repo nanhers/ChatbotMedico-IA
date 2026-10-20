@@ -11,6 +11,8 @@ public sealed record CalendarEventInfo(
 
 public interface ICalendarClient
 {
+    Task<string> GetCalendarTimeZoneAsync(string calendarId);
+
     Task<IReadOnlyList<CalendarEventInfo>> ListEventsAsync(
         string calendarId,
         DateTimeOffset windowStart,

@@ -14,7 +14,18 @@ builder.Services.AddSwaggerGen();
 
 // DI
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
-builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.GoogleCalendarClient>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.MockCalendarClient>();
+}
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.GoogleCalendarClient>();
+}
+
+// AI
+builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
+builder.Services.AddScoped<ChatbotMedico.Application.ChatBot>();
 
 var app = builder.Build();
 

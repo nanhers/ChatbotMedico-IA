@@ -18,21 +18,35 @@ public sealed class CalendarService : ICalendarService
 
     public async Task<CreateCalendarEventResponseDto> CreateEventAsync(CreateCalendarEventRequestDto request)
     {
-        var errors = ValidateCreateRequest(request, out var calendarId, out var summary, out var start, out var end, out var timeZone);
+        Dictionary<string, string[]> errors = ValidateCreateRequest(request, out string calendarId, out string summary, out DateTimeOffset start, out DateTimeOffset end, out string timeZone);
         if (errors.Count > 0)
         {
             throw new ValidationProblemException(errors);
         }
 
+        _logger.LogInformation(
+            "Calendar: validando traslape calendarId={CalendarId} start={Start} end={End}",
+            calendarId,
+            start,
+            end);
+
         // Buscar eventos solo en la ventana solicitada y validar traslape.
-        var existing = await _calendarClient.ListEventsAsync(calendarId, start, end, timeZone);
+        IReadOnlyList<CalendarEventInfo> existing = await _calendarClient.ListEventsAsync(calendarId, start, end, timeZone);
 
         if (HasOverlap(existing.Select(e => e.Interval), start, end))
         {
             throw new ScheduleConflictException("Conflicto de agenda: el intervalo solicitado se traslapa con un evento existente.");
         }
 
-        var created = await _calendarClient.CreateEventAsync(calendarId, summary, start, end, timeZone);
+        CalendarEventInfo created = await _calendarClient.CreateEventAsync(calendarId, summary, start, end, timeZone);
+
+        _logger.LogInformation(
+            "Calendar: evento creado calendarId={CalendarId} eventId={EventId} start={Start} end={End} htmlLink={HtmlLink}",
+            created.CalendarId,
+            created.EventId,
+            created.Interval.Start,
+            created.Interval.End,
+            created.HtmlLink);
 
         return new CreateCalendarEventResponseDto
         {
@@ -47,7 +61,7 @@ public sealed class CalendarService : ICalendarService
 
     public async Task<GetCalendarEventResponseDto?> GetByIdAsync(string calendarId, string eventId, string timeZone)
     {
-        var info = await _calendarClient.GetEventAsync(calendarId, eventId, timeZone);
+        CalendarEventInfo? info = await _calendarClient.GetEventAsync(calendarId, eventId, timeZone);
         if (info is null) return null;
 
         return new GetCalendarEventResponseDto
@@ -83,7 +97,7 @@ public sealed class CalendarService : ICalendarService
         out DateTimeOffset end,
         out string timeZone)
     {
-        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string[]> errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
         calendarId = request.CalendarId?.Trim() ?? string.Empty;
         summary = request.Summary?.Trim() ?? string.Empty;

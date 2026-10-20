@@ -18,7 +18,7 @@ public sealed class GoogleCalendarClient : ICalendarClient
     private async Task<CalendarService> CreateCalendarServiceAsync()
     {
         // ADC (Application Default Credentials): en Cloud Run usa Workload Identity.
-        var credential = await GoogleCredential.GetApplicationDefaultAsync();
+        GoogleCredential credential = await GoogleCredential.GetApplicationDefaultAsync();
         if (credential.IsCreateScopedRequired)
         {
             credential = credential.CreateScoped(CalendarService.Scope.Calendar);
@@ -37,9 +37,9 @@ public sealed class GoogleCalendarClient : ICalendarClient
         DateTimeOffset windowEnd,
         string timeZone)
     {
-        var svc = await CreateCalendarServiceAsync();
+        CalendarService svc = await CreateCalendarServiceAsync();
 
-        var req = svc.Events.List(calendarId);
+        EventsResource.ListRequest req = svc.Events.List(calendarId);
         req.SingleEvents = true;
         req.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
         req.TimeMinDateTimeOffset = windowStart;
@@ -50,13 +50,13 @@ public sealed class GoogleCalendarClient : ICalendarClient
             "Listando eventos en Google Calendar. calendarId={CalendarId} windowStart={WindowStart} windowEnd={WindowEnd} timeZone={TimeZone}",
             calendarId, windowStart, windowEnd, timeZone);
 
-        var result = await req.ExecuteAsync();
-        var items = result.Items ?? new List<Event>();
+        Events result = await req.ExecuteAsync();
+        IList<Event> items = result.Items ?? new List<Event>();
 
-        var mapped = new List<CalendarEventInfo>(items.Count);
+        List<CalendarEventInfo> mapped = new List<CalendarEventInfo>(items.Count);
         foreach (var ev in items)
         {
-            var interval = MapEventToInterval(ev, timeZone);
+            CalendarEventInterval interval = MapEventToInterval(ev, timeZone);
             mapped.Add(new CalendarEventInfo(
                 EventId: ev.Id ?? string.Empty,
                 CalendarId: calendarId,
@@ -77,7 +77,7 @@ public sealed class GoogleCalendarClient : ICalendarClient
     {
         var svc = await CreateCalendarServiceAsync();
 
-        var ev = new Event
+        Event ev = new Event
         {
             Summary = summary,
             Start = new EventDateTime { DateTimeDateTimeOffset = start, TimeZone = timeZone },
@@ -88,10 +88,10 @@ public sealed class GoogleCalendarClient : ICalendarClient
             "Creando evento en Google Calendar. calendarId={CalendarId} start={Start} end={End} timeZone={TimeZone}",
             calendarId, start, end, timeZone);
 
-        var insert = svc.Events.Insert(ev, calendarId);
-        var created = await insert.ExecuteAsync();
+        EventsResource.InsertRequest insert = svc.Events.Insert(ev, calendarId);
+        Event created = await insert.ExecuteAsync();
 
-        var interval = MapEventToInterval(created, timeZone);
+        CalendarEventInterval interval = MapEventToInterval(created, timeZone);
         return new CalendarEventInfo(
             EventId: created.Id ?? string.Empty,
             CalendarId: calendarId,
@@ -110,11 +110,11 @@ public sealed class GoogleCalendarClient : ICalendarClient
 
         try
         {
-            var get = svc.Events.Get(calendarId, eventId);
+            EventsResource.GetRequest get = svc.Events.Get(calendarId, eventId);
             get.TimeZone = timeZone;
-            var ev = await get.ExecuteAsync();
+            Event ev = await get.ExecuteAsync();
 
-            var interval = MapEventToInterval(ev, timeZone);
+            CalendarEventInterval interval = MapEventToInterval(ev, timeZone);
             return new CalendarEventInfo(
                 EventId: ev.Id ?? string.Empty,
                 CalendarId: calendarId,
@@ -152,20 +152,20 @@ public sealed class GoogleCalendarClient : ICalendarClient
                 tz = TimeZoneInfo.Utc;
             }
 
-            var startDate = DateOnly.Parse(ev.Start.Date);
-            var endDate = DateOnly.Parse(ev.End.Date);
+            DateOnly startDate = DateOnly.Parse(ev.Start.Date);
+            DateOnly endDate = DateOnly.Parse(ev.End.Date);
 
-            var startLocal = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
-            var endLocal = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+            DateTime startLocal = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+            DateTime endLocal = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
 
-            var startOffset = new DateTimeOffset(startLocal, tz.GetUtcOffset(startLocal));
-            var endOffset = new DateTimeOffset(endLocal, tz.GetUtcOffset(endLocal));
+            DateTimeOffset startOffset = new DateTimeOffset(startLocal, tz.GetUtcOffset(startLocal));
+            DateTimeOffset endOffset = new DateTimeOffset(endLocal, tz.GetUtcOffset(endLocal));
 
             return new CalendarEventInterval(startOffset, endOffset);
         }
 
         // Fallback defensivo si viene incompleto.
-        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         return new CalendarEventInterval(now, now);
     }
 }

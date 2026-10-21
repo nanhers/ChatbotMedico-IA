@@ -6,5 +6,5 @@ public interface ICalendarService
 {
     Task<CreateCalendarEventResponseDto> CreateEventAsync(CreateCalendarEventRequestDto request);
 
-    Task<GetCalendarEventResponseDto?> GetByIdAsync(string calendarId, string eventId, string timeZone);
+    Task<GetCalendarEventResponseDto?> GetByIdAsync(string calendarId, string eventId);
 }

@@ -42,7 +42,7 @@ public class ChatBot
                     Content = "Eres un asistente para agendar citas médicas. " +
                               "Cuando el usuario quiera agendar, llama a la herramienta schedule_appointment. " +
                               "Extrae del texto: (1) calendarId (correo del calendario), (2) summary (nombre del paciente), " +
-                              "(3) startTime en ISO-8601. " +
+                              "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City." +
                               "El usuario siempre proporcionará fecha completa con año (ej. 16 de octubre del 2026) y hora. " +
                               "NO inventes datos. Si falta algo, NO llames herramientas."
                 },

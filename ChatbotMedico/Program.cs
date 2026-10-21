@@ -24,7 +24,15 @@ else
 }
 
 // AI
-builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.MockLlmClient>();
+}
+else
+{
+    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
+}
+
 builder.Services.AddScoped<ChatbotMedico.Application.ChatBot>();
 
 var app = builder.Build();

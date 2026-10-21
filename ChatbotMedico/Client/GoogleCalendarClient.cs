@@ -40,9 +40,11 @@ public sealed class GoogleCalendarClient : ICalendarClient
 
         CalendarService svc = await CreateCalendarServiceAsync();
 
-        // CalendarList.Get suele funcionar tanto para 'primary' como para IDs tipo correo.
-        CalendarListEntry entry = await svc.CalendarList.Get(calendarId).ExecuteAsync();
-        string tz = entry.TimeZone?.Trim() ?? string.Empty;
+        // Calendars.Get: obtiene el recurso calendario por ID y expone TimeZone.
+        // Nota: CalendarList.* depende de que el calendario esté en la lista del usuario (suscrito/visible),
+        // lo cual no siempre aplica para identidades sin UI (p. ej. service accounts en Cloud Run).
+        Calendar cal = await svc.Calendars.Get(calendarId).ExecuteAsync();
+        string tz = cal.TimeZone?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(tz))
         {

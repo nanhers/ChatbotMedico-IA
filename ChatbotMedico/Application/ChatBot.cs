@@ -22,6 +22,78 @@ public class ChatBot
         _logger = logger;
     }
 
+    public async Task<int> ProcessWhatsAppWebhookAsync(JsonElement payload, CancellationToken ct)
+    {
+        int processed = 0;
+        int failed = 0;
+
+        if (payload.ValueKind != JsonValueKind.Object)
+        {
+            _logger.LogInformation("[WEBHOOK POST] Payload inválido: ValueKind={ValueKind}", payload.ValueKind);
+            return 0;
+        }
+
+        if (!payload.TryGetProperty("entry", out JsonElement entryArr) || entryArr.ValueKind != JsonValueKind.Array)
+        {
+            _logger.LogInformation("[WEBHOOK POST] Payload sin entry[]");
+            return 0;
+        }
+
+        foreach (JsonElement entry in entryArr.EnumerateArray())
+        {
+            if (!entry.TryGetProperty("changes", out JsonElement changesArr) || changesArr.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (JsonElement change in changesArr.EnumerateArray())
+            {
+                if (!change.TryGetProperty("value", out JsonElement valueObj) || valueObj.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                if (!valueObj.TryGetProperty("messages", out JsonElement messagesArr) || messagesArr.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                foreach (JsonElement message in messagesArr.EnumerateArray())
+                {
+                    string? from = message.TryGetProperty("from", out JsonElement fromEl) ? fromEl.GetString() : null;
+                    string? type = message.TryGetProperty("type", out JsonElement typeEl) ? typeEl.GetString() : null;
+
+                    if (!string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (!message.TryGetProperty("text", out JsonElement textObj) || textObj.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    string? body = textObj.TryGetProperty("body", out JsonElement bodyEl) ? bodyEl.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(body))
+                        continue;
+
+                    _logger.LogInformation(
+                        "[WEBHOOK POST] Incoming text message from={From} bodyLength={BodyLength}",
+                        from,
+                        body.Length);
+
+                    try
+                    {
+                        AiInterpretRequestDto req = new AiInterpretRequestDto { Text = body };
+                        await InterpretAndScheduleAsync(req, ct);
+                        processed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        _logger.LogError(ex,
+                            "[WEBHOOK POST] Error procesando mensaje. from={From} bodyLength={BodyLength}",
+                            from,
+                            body.Length);
+                    }
+                }
+            }
+        }
+
+        _logger.LogInformation("[WEBHOOK POST] processedMessages={Processed} failedMessages={Failed}", processed, failed);
+        return processed;
+    }
+
     public async Task<CreateCalendarEventResponseDto> InterpretAndScheduleAsync(AiInterpretRequestDto request, CancellationToken ct)
     {
         Dictionary<string, string[]> errors = ValidateRequest(request, out string text);

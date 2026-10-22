@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.Json;
+using ChatbotMedico.Application;
+using ChatbotMedico.DTOs.AI;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ChatbotMedico.Controllers
 {
@@ -6,7 +9,16 @@ namespace ChatbotMedico.Controllers
     [Route("webhook")]
     public class WebhookController : ControllerBase
     {
-        private const string VerifyToken = "MiClaveSuperSecretaConsultorio2026";
+        private readonly IConfiguration _configuration;
+        private readonly ChatBot _chatBot;
+        private readonly ILogger<WebhookController> _logger;
+
+        public WebhookController(IConfiguration configuration, ChatBot chatBot, ILogger<WebhookController> logger)
+        {
+            _configuration = configuration;
+            _chatBot = chatBot;
+            _logger = logger;
+        }
 
         [HttpGet]
         public IActionResult Get(
@@ -14,11 +26,16 @@ namespace ChatbotMedico.Controllers
             [FromQuery(Name = "hub.verify_token")] string? token,
             [FromQuery(Name = "hub.challenge")] string? challenge)
         {
-            Console.WriteLine($"[WEBHOOK GET] Mode: {mode} | Token: {token} | Challenge: {challenge}");
+            string? verifyToken = _configuration["WhatsApp:VerifyToken"];
 
-            if (mode == "subscribe" && token == VerifyToken)
+            _logger.LogInformation(
+                "[WEBHOOK GET] mode={Mode} tokenProvided={TokenProvided} challengeProvided={ChallengeProvided}",
+                mode,
+                !string.IsNullOrWhiteSpace(token),
+                !string.IsNullOrWhiteSpace(challenge));
+
+            if (mode == "subscribe" && !string.IsNullOrWhiteSpace(verifyToken) && token == verifyToken)
             {
-                // Retornamos el challenge asegurando texto plano estricto
                 return new ContentResult
                 {
                     Content = challenge ?? string.Empty,
@@ -31,9 +48,19 @@ namespace ChatbotMedico.Controllers
         }
 
         [HttpPost]
-        public IActionResult Post([FromBody] object data)
+        public async Task<IActionResult> Post([FromBody] JsonElement payload, CancellationToken ct)
         {
-            Console.WriteLine($"[WEBHOOK POST] Payload: {data}");
+            try
+            {
+                await _chatBot.ProcessWhatsAppWebhookAsync(payload, ct);
+            }
+            catch (Exception ex)
+            {
+                // Meta requiere 200; loggeamos y no re-lanzamos.
+                _logger.LogError(ex, "[WEBHOOK POST] Error delegando el procesamiento del webhook.");
+                return Ok();
+            }
+
             return Ok();
         }
     }

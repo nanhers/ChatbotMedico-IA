@@ -63,7 +63,8 @@ public sealed class ChatBotTests
         llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("429"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
@@ -84,7 +85,8 @@ public sealed class ChatBotTests
         llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResponseDto { Provider = "fake" });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
@@ -131,7 +133,8 @@ public sealed class ChatBotTests
                 TimeZone = "America/Mexico_City"
             });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
@@ -178,7 +181,8 @@ public sealed class ChatBotTests
                 TimeZone = "America/Mexico_City"
             });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
@@ -196,7 +200,8 @@ public sealed class ChatBotTests
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<ChatBot>>();
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = ParseJson("[]");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -213,7 +218,8 @@ public sealed class ChatBotTests
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<ChatBot>>();
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = ParseJson("{}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -230,7 +236,8 @@ public sealed class ChatBotTests
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<ChatBot>>();
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayloadWithMessagesJson("{\"from\":\"user1\",\"type\":\"image\"}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -247,7 +254,8 @@ public sealed class ChatBotTests
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<ChatBot>>();
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayloadWithMessagesJson("{\"from\":\"user1\",\"type\":\"text\"}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -266,7 +274,8 @@ public sealed class ChatBotTests
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<ChatBot>>();
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(body);
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -298,7 +307,8 @@ public sealed class ChatBotTests
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayload("Hola quiero una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -333,7 +343,8 @@ public sealed class ChatBotTests
                 startTime: "2026-10-16T11:00:00-06:00",
                 endTime: "2026-10-16T11:45:00-06:00"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             "Mensaje 1",
@@ -368,7 +379,8 @@ public sealed class ChatBotTests
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, logger);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             "Mensaje que truena",

@@ -23,6 +23,16 @@ else
     builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.GoogleCalendarClient>();
 }
 
+// WhatsApp messaging
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
+}
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
+}
+
 // AI
 if (builder.Environment.IsDevelopment())
 {

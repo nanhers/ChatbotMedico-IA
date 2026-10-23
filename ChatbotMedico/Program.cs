@@ -24,13 +24,14 @@ else
 }
 
 // WhatsApp messaging
-if (builder.Environment.IsDevelopment())
+var useWhatsAppMessaging = builder.Configuration.GetValue<bool>("Messaging:UseWhatsApp");
+if (useWhatsAppMessaging)
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
 }
 else
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
 }
 
 // AI

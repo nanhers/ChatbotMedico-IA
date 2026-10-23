@@ -13,12 +13,14 @@ public class ChatBot
 
     private readonly ILlmClient _llm;
     private readonly ICalendarService _calendarService;
+    private readonly IMessageClient _messageClient;
     private readonly ILogger<ChatBot> _logger;
 
-    public ChatBot(ILlmClient llm, ICalendarService calendarService, ILogger<ChatBot> logger)
+    public ChatBot(ILlmClient llm, ICalendarService calendarService, IMessageClient messageClient, ILogger<ChatBot> logger)
     {
         _llm = llm;
         _calendarService = calendarService;
+        _messageClient = messageClient;
         _logger = logger;
     }
 
@@ -77,6 +79,11 @@ public class ChatBot
                         AiInterpretRequestDto req = new AiInterpretRequestDto { Text = body };
                         await InterpretAndScheduleAsync(req, ct);
                         processed++;
+
+                        if (!string.IsNullOrWhiteSpace(from))
+                        {
+                            await _messageClient.SendTextAsync(from, "Su cita quedó agendada.", ct);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -85,6 +92,18 @@ public class ChatBot
                             "[WEBHOOK POST] Error procesando mensaje. from={From} bodyLength={BodyLength}",
                             from,
                             body.Length);
+
+                        if (!string.IsNullOrWhiteSpace(from))
+                        {
+                            try
+                            {
+                                await _messageClient.SendTextAsync(from, "Hubo un error al agendar su cita.", ct);
+                            }
+                            catch (Exception sendEx)
+                            {
+                                _logger.LogError(sendEx, "[WEBHOOK POST] Error enviando mensaje WhatsApp de error. from={From}", from);
+                            }
+                        }
                     }
                 }
             }

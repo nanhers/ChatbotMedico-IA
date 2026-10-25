@@ -14,7 +14,8 @@ builder.Services.AddSwaggerGen();
 
 // DI
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
-if (builder.Environment.IsDevelopment())
+var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
+if (useCalendarMock)
 {
     builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.MockCalendarClient>();
 }
@@ -24,18 +25,19 @@ else
 }
 
 // WhatsApp messaging
-var useWhatsAppMessaging = builder.Configuration.GetValue<bool>("Messaging:UseWhatsApp");
-if (useWhatsAppMessaging)
-{
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
-}
-else
+var useWhatsAppMock = builder.Configuration.GetValue<bool>("Mocks:UseWhatsAppMock");
+if (useWhatsAppMock)
 {
     builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
 }
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
+}
 
 // AI
-if (builder.Environment.IsDevelopment())
+var useLlmMock = builder.Configuration.GetValue<bool>("Mocks:UseLlmMock");
+if (useLlmMock)
 {
     builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.MockLlmClient>();
 }

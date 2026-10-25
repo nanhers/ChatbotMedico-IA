@@ -3,6 +3,7 @@ using ChatbotMedico.Client.Interfaces;
 using ChatbotMedico.DTOs.AI;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.DTOs.LLM;
+using ChatbotMedico.DTOs.Messaging;
 using ChatbotMedico.Services.Interfaces;
 
 namespace ChatbotMedico.Application;
@@ -77,12 +78,27 @@ public class ChatBot
                     try
                     {
                         AiInterpretRequestDto req = new AiInterpretRequestDto { Text = body };
-                        await InterpretAndScheduleAsync(req, ct);
+                        AiToolActionResultDto action = await InterpretAndScheduleAsync(req, ct);
                         processed++;
 
                         if (!string.IsNullOrWhiteSpace(from))
                         {
-                            await _messageClient.SendTextAsync(from, "Su cita quedó agendada.", ct);
+                            if (string.Equals(action.ToolName, "reply_message", StringComparison.OrdinalIgnoreCase))
+                            {
+                                string reply = string.IsNullOrWhiteSpace(action.ReplyMessage)
+                                    ? "No pude interpretar tu mensaje para agendar cita."
+                                    : action.ReplyMessage;
+
+                                await _messageClient.SendTextAsync(from, reply, ct);
+                            }
+                            else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
+                            {
+                                await _messageClient.SendTextAsync(from, "Su cita quedó agendada.", ct);
+                            }
+                            else
+                            {
+                                await _messageClient.SendTextAsync(from, "No pude interpretar tu mensaje para agendar cita.", ct);
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -113,29 +129,84 @@ public class ChatBot
         return processed;
     }
 
-    public async Task<CreateCalendarEventResponseDto> InterpretAndScheduleAsync(AiInterpretRequestDto request, CancellationToken ct)
+    public async Task<AiToolActionResultDto> InterpretAndScheduleAsync(AiInterpretRequestDto request, CancellationToken ct)
     {
         Dictionary<string, string[]> errors = ValidateRequest(request, out string text);
         if (errors.Count > 0)
         {
-            // Sin excepción personalizada: usamos ArgumentException con el primer error.
             KeyValuePair<string, string[]> first = errors.First();
             throw new ArgumentException(first.Value.FirstOrDefault() ?? "Datos inválidos", first.Key);
         }
 
-        LlmRequestDto llmRequest = new LlmRequestDto
+        LlmRequestDto llmRequest = BuildLlmRequest(text);
+
+        // Invocamos al LLM y capturamos cualquier excepción para loguearla
+        LlmResponseDto response;
+        try
+        {
+            response = await _llm.GetResponseAsync(llmRequest, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallo al invocar el proveedor de IA.");
+            throw new InvalidOperationException(ex.Message, ex);
+        }
+
+
+        string provider = string.IsNullOrWhiteSpace(response.Provider) ? "unknown" : response.Provider;
+
+        _logger.LogInformation(
+            "Response del LLM: model={Model} toolCalls={ToolCallsCount}",
+            provider,
+            response.ToolCalls.Count);
+
+        // Una línea por tool-call (name + args)
+        foreach (var tc in response.ToolCalls)
+        {
+            string name = string.IsNullOrWhiteSpace(tc.Name) ? "(none)" : tc.Name;
+            string argsPreview = string.IsNullOrWhiteSpace(tc.ArgumentsJson) ? "none" : tc.ArgumentsJson;
+
+            _logger.LogInformation("LLM: tool-call name={ToolCallName} args={ToolCallArgs}", name, argsPreview);
+        }
+
+        if (response.ToolCalls.Count > 1)
+        {
+            _logger.LogWarning("LLM devolvió múltiples tool-calls; se tomará el primero. toolCallsCount={ToolCallsCount}", response.ToolCalls.Count);
+        }
+
+        LlmToolCallDto? toolCall = response.ToolCalls.FirstOrDefault();
+
+        if (toolCall is null || string.IsNullOrWhiteSpace(toolCall.Name))
+        {
+            return new AiToolActionResultDto
+            {
+                ToolName = string.Empty,
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "No pude interpretar tu mensaje para agendar cita."
+            };
+        }
+
+        return await ExecuteToolCall(toolCall, ct);
+    }
+
+    private static LlmRequestDto BuildLlmRequest(string text)
+    {
+        return new LlmRequestDto
         {
             Messages =
             [
                 new LlmMessageDto
                 {
                     Role = "system",
-                    Content = "Eres un asistente para agendar citas médicas. " +
-                              "Cuando el usuario quiera agendar, llama a la herramienta schedule_appointment. " +
+                    Content = "Eres un asistente para agendar citas médicas por WhatsApp. " +
+                              "Tienes dos herramientas: (1) schedule_appointment para agendar una cita en Google Calendar y " +
+                              "(2) reply_message para responder al usuario (incluyendo pedir datos faltantes o responder preguntas generales). " +
+                              "Cuando el usuario quiera agendar y tengas TODOS los datos, llama a schedule_appointment. " +
                               "Extrae del texto: (1) calendarId (correo del calendario), (2) summary (nombre del paciente), " +
-                              "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City." +
+                              "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City. " +
                               "El usuario siempre proporcionará fecha completa con año (ej. 16 de octubre del 2026) y hora. " +
-                              "NO inventes datos. Si falta algo, NO llames herramientas."
+                              "NO inventes datos. Si falta algo para agendar o si el usuario hace una pregunta general, llama a reply_message. " +
+                              "Devuelve exactamente 1 tool-call."
                 },
                 new LlmMessageDto { Role = "user", Content = text }
             ],
@@ -146,54 +217,92 @@ public class ChatBot
                     Name = "schedule_appointment",
                     Description = "Agenda una cita médica en Google Calendar",
                     ParametersJsonSchema = ScheduleAppointmentArgsJsonSchema
+                },
+                new LlmToolDefinitionDto
+                {
+                    Name = "reply_message",
+                    Description = "Responde al usuario por WhatsApp (preguntar datos faltantes o responder preguntas generales)",
+                    ParametersJsonSchema = ReplyMessageArgsJsonSchema
                 }
             ]
         };
+    }
 
-        LlmResponseDto response;
+    
+    private async Task<AiToolActionResultDto> ExecuteToolCall(LlmToolCallDto toolCall, CancellationToken ct)
+    {
+        string toolName = toolCall.Name?.Trim() ?? string.Empty;
+        string argsJson = toolCall.ArgumentsJson ?? string.Empty;
+
+        // Validación común: aplica para cualquier tool (incluidas futuras)
+        if (string.IsNullOrWhiteSpace(toolName) || string.IsNullOrWhiteSpace(argsJson))
+        {
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "No pude interpretar tu mensaje para agendar cita."
+            };
+        }
+
+        if (string.Equals(toolName, "reply_message", StringComparison.OrdinalIgnoreCase))
+        {
+            return ExecuteReplyMessageToolCall(toolName, argsJson);
+        }
+
+        if (string.Equals(toolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ExecuteScheduleAppointmentToolCallAsync(toolName, argsJson, ct);
+        }
+
+        return new AiToolActionResultDto
+        {
+            ToolName = toolName,
+            ArgumentsJson = string.Empty,
+            ReplyMessage = "No pude interpretar tu mensaje para agendar cita."
+        };
+    }
+
+    private AiToolActionResultDto ExecuteReplyMessageToolCall(string toolName, string argsJson)
+    {
+        
+        ReplyMessageArgsDto args;
         try
         {
-            response = await _llm.GetResponseAsync(llmRequest, ct);
+            args = JsonSerializer.Deserialize<ReplyMessageArgsDto>(argsJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? throw new JsonException("JsonSerializer.Deserialize devolvió null.");
         }
         catch (Exception ex)
         {
-            // No mencionamos proveedor; propagamos el mensaje real.
-            _logger.LogWarning(ex, "Fallo al invocar el proveedor de IA.");
-            throw new InvalidOperationException(ex.Message, ex);
+            _logger.LogError(ex,
+                "No se pudieron deserializar los argumentos de la herramienta reply_message. args={ArgsJson}",
+                argsJson);
+
+            return new AiToolActionResultDto
+            {
+                ToolName = toolName,
+                ArgumentsJson = argsJson,
+                ReplyMessage = "No pude interpretar tu mensaje para agendar cita."
+            };
         }
 
-        string provider = string.IsNullOrWhiteSpace(response.Provider) ? "unknown" : response.Provider;
-
-        // Un solo log resumen del LLM (neutral al proveedor)
-        _logger.LogInformation(
-            "Response del LLM: model={Model} toolCalls={ToolCallsCount}",
-            provider,
-            response.ToolCalls.Count);
-
-        // Una línea por tool-call (name + args)
-        foreach (var tc in response.ToolCalls)
+        return new AiToolActionResultDto
         {
-            string name = string.IsNullOrWhiteSpace(tc.Name) ? "(none)" : tc.Name;
-            string argsJson = string.IsNullOrWhiteSpace(tc.ArgumentsJson) ? "none" : tc.ArgumentsJson;
+            ToolName = toolName,
+            ArgumentsJson = argsJson,
+            ReplyMessage = args.Message
+        };
+    }
 
-            _logger.LogInformation("LLM: tool-call name={ToolCallName} args={ToolCallArgs}", name, argsJson);
-        }
-
-        LlmToolCallDto? toolCall = response.ToolCalls.FirstOrDefault(t => string.Equals(t.Name, "schedule_appointment", StringComparison.OrdinalIgnoreCase));
-        if (toolCall is null)
-        {
-            throw new InvalidOperationException("No se pudo interpretar el mensaje o faltan datos para agendar.");
-        }
-
-        if (string.IsNullOrWhiteSpace(toolCall.ArgumentsJson))
-        {
-            throw new FormatException("No se pudieron leer los argumentos de la herramienta schedule_appointment: ArgumentsJson viene vacío.");
-        }
-
+    private async Task<AiToolActionResultDto> ExecuteScheduleAppointmentToolCallAsync(string toolName, string argsJson, CancellationToken ct)
+    {
+        
         ScheduleAppointmentArgs args;
         try
         {
-            args = JsonSerializer.Deserialize<ScheduleAppointmentArgs>(toolCall.ArgumentsJson, new JsonSerializerOptions
+            args = JsonSerializer.Deserialize<ScheduleAppointmentArgs>(argsJson, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             }) ?? throw new JsonException("JsonSerializer.Deserialize devolvió null.");
@@ -202,24 +311,39 @@ public class ChatBot
         {
             _logger.LogError(ex,
                 "No se pudieron deserializar los argumentos de la herramienta schedule_appointment. args={ArgsJson}",
-                toolCall.ArgumentsJson);
+                argsJson);
 
             throw new FormatException("No se pudieron leer los argumentos de la herramienta schedule_appointment.", ex);
         }
 
         if (string.IsNullOrWhiteSpace(args.CalendarId))
         {
-            throw new InvalidOperationException("Falta calendarId en los argumentos de la herramienta.");
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "¿Cuál es el calendarId (correo del calendario) para agendar la cita?"
+            };
         }
 
         if (string.IsNullOrWhiteSpace(args.Summary))
         {
-            throw new InvalidOperationException("Falta summary en los argumentos de la herramienta.");
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "¿A nombre de quién agendo la cita (nombre del paciente)?"
+            };
         }
 
         if (!DateTimeOffset.TryParse(args.StartTime, out DateTimeOffset start))
         {
-            throw new FormatException("startTime no es ISO-8601 válido.");
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "¿Para qué fecha y hora desea la cita? (incluya año y hora)"
+            };
         }
 
         CreateCalendarEventRequestDto createReq = new CreateCalendarEventRequestDto
@@ -230,8 +354,23 @@ public class ChatBot
             EndTime = start.Add(DefaultDuration).ToString("O")
         };
 
-        return await _calendarService.CreateEventAsync(createReq);
+        CreateCalendarEventResponseDto created = await _calendarService.CreateEventAsync(createReq);
+
+        return new AiToolActionResultDto
+        {
+            ToolName = toolName,
+            ArgumentsJson = argsJson,
+            CalendarEventResponse = created
+        };
     }
+
+    private const string ReplyMessageArgsJsonSchema = "{\n" +
+        "  \"type\": \"object\",\n" +
+        "  \"properties\": {\n" +
+        "    \"message\": { \"type\": \"string\", \"description\": \"Mensaje a enviar al usuario\" }\n" +
+        "  },\n" +
+        "  \"required\": [\"message\" ]\n" +
+        "}";
 
     private const string ScheduleAppointmentArgsJsonSchema = "{\n" +
         "  \"type\": \"object\",\n" +

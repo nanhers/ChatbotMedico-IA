@@ -76,7 +76,7 @@ public sealed class ChatBotTests
     }
 
     [Fact]
-    public async Task InterpretAndScheduleAsync_WhenNoToolCall_ReturnsValidationError()
+    public async Task InterpretAndScheduleAsync_WhenNoToolCall_ReturnsFallbackReplyMessage()
     {
         var llm = new Mock<ILlmClient>(MockBehavior.Strict);
         var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
@@ -88,13 +88,12 @@ public sealed class ChatBotTests
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
-            {
-                Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
-            }, CancellationToken.None));
+        AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
+        {
+            Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
+        }, CancellationToken.None);
 
-        Assert.Equal("No se pudo interpretar el mensaje o faltan datos para agendar.", ex.Message);
+        Assert.Equal("No pude interpretar tu mensaje para agendar cita.", result.ReplyMessage);
     }
 
     [Fact]
@@ -141,7 +140,8 @@ public sealed class ChatBotTests
             Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
         }, CancellationToken.None);
 
-        Assert.Equal("evt1", result.EventId);
+        Assert.NotNull(result.CalendarEventResponse);
+        Assert.Equal("evt1", result.CalendarEventResponse!.EventId);
         calendar.VerifyAll();
     }
 
@@ -189,7 +189,8 @@ public sealed class ChatBotTests
             Text = "Hola soy Juan Perez quiero agendar una cita para el 25 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
         }, CancellationToken.None);
 
-        Assert.Equal("evt2", result.EventId);
+        Assert.NotNull(result.CalendarEventResponse);
+        Assert.Equal("evt2", result.CalendarEventResponse!.EventId);
         calendar.VerifyAll();
     }
 

@@ -44,7 +44,8 @@ public sealed class ChatbotReplyMessageToolTests
         llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ReplyToolCallResponse("¿Para qué fecha y hora desea la cita?"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Quiero una cita" },
@@ -70,7 +71,8 @@ public sealed class ChatbotReplyMessageToolTests
         llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LlmResponseDto { Provider = "fake", ToolCalls = [] });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
@@ -101,7 +103,8 @@ public sealed class ChatbotReplyMessageToolTests
                 ]
             });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
@@ -134,7 +137,8 @@ public sealed class ChatbotReplyMessageToolTests
                 ]
             });
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
@@ -162,7 +166,8 @@ public sealed class ChatbotReplyMessageToolTests
         messageClient.Setup(x => x.SendTextAsync("user1", "Necesito fecha y hora", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         JsonElement payload = BuildWebhookPayload("user1", "Quiero una cita");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -188,7 +193,8 @@ public sealed class ChatbotReplyMessageToolTests
         messageClient.Setup(x => x.SendTextAsync("user1", "No pude interpretar tu mensaje para agendar cita.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         JsonElement payload = BuildWebhookPayload("user1", "mensaje raro");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);

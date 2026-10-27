@@ -5,6 +5,7 @@ using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.DTOs.LLM;
 using ChatbotMedico.DTOs.Messaging;
 using ChatbotMedico.Services.Interfaces;
+using Google.Cloud.Firestore;
 
 namespace ChatbotMedico.Application;
 
@@ -15,13 +16,20 @@ public class ChatBot
     private readonly ILlmClient _llm;
     private readonly ICalendarService _calendarService;
     private readonly IMessageClient _messageClient;
+    private readonly IChatHistoryService _chatHistoryService;
     private readonly ILogger<ChatBot> _logger;
 
-    public ChatBot(ILlmClient llm, ICalendarService calendarService, IMessageClient messageClient, ILogger<ChatBot> logger)
+    public ChatBot(
+        ILlmClient llm,
+        ICalendarService calendarService,
+        IMessageClient messageClient,
+        IChatHistoryService chatHistoryService,
+        ILogger<ChatBot> logger)
     {
         _llm = llm;
         _calendarService = calendarService;
         _messageClient = messageClient;
+        _chatHistoryService = chatHistoryService;
         _logger = logger;
     }
 
@@ -75,6 +83,17 @@ public class ChatBot
                         from,
                         body.Length);
 
+                    // Persistir mensaje del usuario (role=user)
+                    if (!string.IsNullOrWhiteSpace(from))
+                    {
+                        string phoneDigits = NormalizePhoneDigits(from);
+                        // persistimos siempre el momento de procesamiento.
+                        Timestamp incomingTs = Timestamp.FromDateTime(DateTime.UtcNow);
+                        await _chatHistoryService.AppendAsync(phoneDigits,
+                            new ChatHistoryMessageDto { Role = "user", Text = body, Timestamp = incomingTs },
+                            ct);
+                    }
+
                     try
                     {
                         AiInterpretRequestDto req = new AiInterpretRequestDto { Text = body };
@@ -89,15 +108,20 @@ public class ChatBot
                                     ? "No pude interpretar tu mensaje para agendar cita."
                                     : action.ReplyMessage;
 
+                                await PersistModelReplyAsync(from, reply, ct);
                                 await _messageClient.SendTextAsync(from, reply, ct);
                             }
                             else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
                             {
-                                await _messageClient.SendTextAsync(from, "Su cita quedó agendada.", ct);
+                                const string reply = "Su cita quedó agendada.";
+                                await PersistModelReplyAsync(from, reply, ct);
+                                await _messageClient.SendTextAsync(from, reply, ct);
                             }
                             else
                             {
-                                await _messageClient.SendTextAsync(from, "No pude interpretar tu mensaje para agendar cita.", ct);
+                                const string reply = "No pude interpretar tu mensaje para agendar cita.";
+                                await PersistModelReplyAsync(from, reply, ct);
+                                await _messageClient.SendTextAsync(from, reply, ct);
                             }
                         }
                     }
@@ -113,7 +137,9 @@ public class ChatBot
                         {
                             try
                             {
-                                await _messageClient.SendTextAsync(from, "Hubo un error al agendar su cita.", ct);
+                                const string reply = "Hubo un error al agendar su cita.";
+                                await PersistModelReplyAsync(from, reply, ct);
+                                await _messageClient.SendTextAsync(from, reply, ct);
                             }
                             catch (Exception sendEx)
                             {
@@ -398,6 +424,40 @@ public class ChatBot
             errors["text"] = ["text es obligatorio."];
 
         return errors;
+    }
+
+    private static string NormalizePhoneDigits(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+
+        Span<char> buffer = stackalloc char[input.Length];
+        int idx = 0;
+        foreach (char ch in input)
+        {
+            if (char.IsDigit(ch))
+            {
+                buffer[idx++] = ch;
+            }
+        }
+
+        return new string(buffer[..idx]);
+    }
+
+
+    private async Task PersistModelReplyAsync(string to, string reply, CancellationToken ct)
+    {
+        try
+        {
+            string phoneDigits = NormalizePhoneDigits(to);
+            await _chatHistoryService.AppendAsync(phoneDigits,
+                new ChatHistoryMessageDto { Role = "model", Text = reply, Timestamp = Timestamp.FromDateTime(DateTime.UtcNow) },
+                ct);
+        }
+        catch (Exception ex)
+        {
+            // No bloquear: solo log y continuar.
+            _logger.LogWarning(ex, "No se pudo persistir respuesta del modelo. to={To}", to);
+        }
     }
 
 }

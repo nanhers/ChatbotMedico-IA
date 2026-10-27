@@ -74,7 +74,8 @@ public sealed class ChatbotWhatsAppTests
             .Setup(x => x.SendTextAsync("5215550000001", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             from: "5215550000001",
@@ -115,7 +116,8 @@ public sealed class ChatbotWhatsAppTests
             .Setup(x => x.SendTextAsync("5215550000002", "No pude interpretar tu mensaje para agendar cita.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, logger);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             from: "5215550000002",

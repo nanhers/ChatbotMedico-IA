@@ -14,6 +14,9 @@ builder.Services.AddSwaggerGen();
 
 // DI
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
+builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
+builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
+
 var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
 if (useCalendarMock)
 {

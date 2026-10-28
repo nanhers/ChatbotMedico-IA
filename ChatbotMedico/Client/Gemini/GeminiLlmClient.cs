@@ -11,9 +11,16 @@ public sealed class GeminiLlmClient : ILlmClient
 {
     private readonly Google.GenAI.Client _client;
     private readonly string _model;
+    private readonly ILogger<GeminiLlmClient> _logger;
 
-    public GeminiLlmClient(IConfiguration configuration)
+    private readonly int _maxRetries;
+    private readonly int _initialDelaySeconds;
+    private readonly double _backoffMultiplier;
+
+    public GeminiLlmClient(IConfiguration configuration, ILogger<GeminiLlmClient> logger)
     {
+        _logger = logger;
+
         string? apiKey = configuration["Gemini:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -25,6 +32,44 @@ public sealed class GeminiLlmClient : ILlmClient
         {
             _model = "gemini-3.6-flash";
         }
+
+        int? maxRetries = configuration.GetValue<int?>("LlmSettings:MaxRetries");
+        int? initialDelaySeconds = configuration.GetValue<int?>("LlmSettings:InitialDelaySeconds");
+        double? backoffMultiplier = configuration.GetValue<double?>("LlmSettings:BackoffMultiplier");
+
+        if (!maxRetries.HasValue)
+        {
+            throw new InvalidOperationException("Falta configuración LlmSettings:MaxRetries.");
+        }
+
+        if (!initialDelaySeconds.HasValue)
+        {
+            throw new InvalidOperationException("Falta configuración LlmSettings:InitialDelaySeconds.");
+        }
+
+        if (!backoffMultiplier.HasValue)
+        {
+            throw new InvalidOperationException("Falta configuración LlmSettings:BackoffMultiplier.");
+        }
+
+        if (maxRetries.Value < 0)
+        {
+            throw new InvalidOperationException("Configuración inválida LlmSettings:MaxRetries. Debe ser >= 0.");
+        }
+
+        if (initialDelaySeconds.Value < 0)
+        {
+            throw new InvalidOperationException("Configuración inválida LlmSettings:InitialDelaySeconds. Debe ser >= 0.");
+        }
+
+        if (double.IsNaN(backoffMultiplier.Value) || double.IsInfinity(backoffMultiplier.Value) || backoffMultiplier.Value < 1.0)
+        {
+            throw new InvalidOperationException("Configuración inválida LlmSettings:BackoffMultiplier. Debe ser >= 1.0.");
+        }
+
+        _maxRetries = maxRetries.Value;
+        _initialDelaySeconds = initialDelaySeconds.Value;
+        _backoffMultiplier = backoffMultiplier.Value;
 
         _client = new Google.GenAI.Client(apiKey: apiKey);
     }
@@ -43,11 +88,13 @@ public sealed class GeminiLlmClient : ILlmClient
             Tools = tools
         };
 
-        GenerateContentResponse response = await _client.Models.GenerateContentAsync(
-            model: _model,
-            contents: contents,
-            config: config,
-            cancellationToken: cancellationToken);
+        GenerateContentResponse response = await ExecuteWithRetryAsync(
+            () => _client.Models.GenerateContentAsync(
+                model: _model,
+                contents: contents,
+                config: config,
+                cancellationToken: cancellationToken),
+            cancellationToken);
 
         LlmResponseDto dto = new LlmResponseDto
         {
@@ -57,6 +104,53 @@ public sealed class GeminiLlmClient : ILlmClient
         dto.ToolCalls = ExtractFunctionCalls(response);
 
         return dto;
+    }
+
+    private async Task<GenerateContentResponse> ExecuteWithRetryAsync(
+        Func<Task<GenerateContentResponse>> action,
+        CancellationToken cancellationToken)
+    {
+        int totalAttempts = 1 + _maxRetries;
+
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
+        {
+            try
+            {
+                return await action();
+            }
+            catch (Google.GenAI.ServerError ex) when (attempt < totalAttempts && IsRetryableServerError(ex))
+            {
+                TimeSpan delay = CalculateDelay(attempt);
+
+                _logger.LogWarning(
+                    ex,
+                    "Gemini transient failure; retrying. model={Model} attempt={Attempt}/{TotalAttempts} delayMs={DelayMs}",
+                    _model,
+                    attempt,
+                    totalAttempts,
+                    (int)delay.TotalMilliseconds);
+
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+
+        // No debería llegar aquí: el último intento o retorna o lanza.
+        throw new InvalidOperationException("Fallo inesperado en la política de reintentos de Gemini.");
+    }
+
+    private static bool IsRetryableServerError(Google.GenAI.ServerError ex)
+    {
+        // MVP: el caso reportado.
+        string msg = ex.Message ?? string.Empty;
+        return msg.Contains("high demand", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private TimeSpan CalculateDelay(int attempt)
+    {
+        // attempt=1 falló y vamos a reintentar -> usar initialDelay * backoff^(attempt-1)
+        double seconds = _initialDelaySeconds * Math.Pow(_backoffMultiplier, attempt - 1);
+        if (seconds < 0) seconds = 0;
+        return TimeSpan.FromSeconds(seconds);
     }
 
     private static (Content? systemInstruction, List<Content> contents) MapMessages(List<LlmMessageDto> messages)

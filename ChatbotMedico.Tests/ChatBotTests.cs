@@ -30,7 +30,7 @@ public sealed class ChatBotTests
         return ParseJson(json);
     }
 
-    private static LlmResponseDto ToolCallResponse(string calendarId = "fake-calendar@invalid", string summary = "Juan Perez", string startTime = "2026-10-16T10:00:00-06:00")
+    private static LlmResponseDto ToolCallResponse(string summary = "Juan Perez", string startTime = "2026-10-16T10:00:00-06:00")
         => new LlmResponseDto
         {
             Provider = "fake",
@@ -39,16 +39,15 @@ public sealed class ChatBotTests
                 new LlmToolCallDto
                 {
                     Name = "schedule_appointment",
-                    ArgumentsJson = $"{{\"calendarId\":\"{calendarId}\",\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
+                    ArgumentsJson = $"{{\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
                 }
             ]
         };
 
-    private static CreateCalendarEventResponseDto CalendarOk(string eventId, string calendarId, string startTime, string endTime)
+    private static CreateCalendarEventResponseDto CalendarOk(string eventId, string startTime, string endTime)
         => new CreateCalendarEventResponseDto
         {
             EventId = eventId,
-            CalendarId = calendarId,
             StartTime = startTime,
             EndTime = endTime,
             TimeZone = "America/Mexico_City"
@@ -116,13 +115,12 @@ public sealed class ChatBotTests
                     new LlmToolCallDto
                     {
                         Name = "schedule_appointment",
-                        ArgumentsJson = "{\"calendarId\":\"fake-calendar@invalid\",\"summary\":\"Juan Perez\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}"
+                        ArgumentsJson = "{\"summary\":\"Juan Perez\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}"
                     }
                 ]
             });
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.CalendarId == "fake-calendar@invalid" &&
                 r.Summary == "Juan Perez" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-16T10:00:00") &&
@@ -130,7 +128,6 @@ public sealed class ChatBotTests
             .ReturnsAsync(new CreateCalendarEventResponseDto
             {
                 EventId = "evt1",
-                CalendarId = "fake-calendar@invalid",
                 StartTime = "2026-10-16T10:00:00-06:00",
                 EndTime = "2026-10-16T10:45:00-06:00",
                 TimeZone = "America/Mexico_City"
@@ -167,13 +164,12 @@ public sealed class ChatBotTests
                     new LlmToolCallDto
                     {
                         Name = "schedule_appointment",
-                        ArgumentsJson = "{\"calendarId\":\"fake-calendar@invalid\",\"startTime\":\"2026-10-25T10:00:00-06:00\",\"summary\":\"Juan Perez\"}"
+                        ArgumentsJson = "{\"startTime\":\"2026-10-25T10:00:00-06:00\",\"summary\":\"Juan Perez\"}"
                     }
                 ]
             });
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.CalendarId == "fake-calendar@invalid" &&
                 r.Summary == "Juan Perez" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-25T10:00:00") &&
@@ -181,7 +177,6 @@ public sealed class ChatBotTests
             .ReturnsAsync(new CreateCalendarEventResponseDto
             {
                 EventId = "evt2",
-                CalendarId = "fake-calendar@invalid",
                 StartTime = "2026-10-25T10:00:00-06:00",
                 EndTime = "2026-10-25T10:45:00-06:00",
                 TimeZone = "America/Mexico_City"
@@ -310,14 +305,12 @@ public sealed class ChatBotTests
             .ReturnsAsync(ToolCallResponse());
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.CalendarId == "fake-calendar@invalid" &&
                 r.Summary == "Juan Perez" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-16T10:00:00") &&
                 r.EndTime.StartsWith("2026-10-16T10:45:00"))))
             .ReturnsAsync(CalendarOk(
                 eventId: "evt_webhook_1",
-                calendarId: "fake-calendar@invalid",
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
@@ -349,12 +342,10 @@ public sealed class ChatBotTests
         calendar.SetupSequence(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
             .ReturnsAsync(CalendarOk(
                 eventId: "evt_webhook_2a",
-                calendarId: "fake-calendar@invalid",
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"))
             .ReturnsAsync(CalendarOk(
                 eventId: "evt_webhook_2b",
-                calendarId: "fake-calendar@invalid",
                 startTime: "2026-10-16T11:00:00-06:00",
                 endTime: "2026-10-16T11:45:00-06:00"));
 
@@ -387,11 +378,9 @@ public sealed class ChatBotTests
             .ReturnsAsync(ToolCallResponse(startTime: "2026-10-16T10:00:00-06:00"));
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.CalendarId == "fake-calendar@invalid" &&
                 string.IsNullOrWhiteSpace(r.TimeZone))))
             .ReturnsAsync(CalendarOk(
                 eventId: "evt_webhook_3",
-                calendarId: "fake-calendar@invalid",
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 

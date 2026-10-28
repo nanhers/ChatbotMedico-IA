@@ -248,8 +248,7 @@ public class ChatBot
                           "Tienes dos herramientas: (1) schedule_appointment para agendar una cita en Google Calendar y " +
                           "(2) reply_message para responder al usuario (incluyendo pedir datos faltantes o responder preguntas generales). " +
                           "Cuando el usuario quiera agendar y tengas TODOS los datos, llama a schedule_appointment. " +
-                          "Extrae del texto: (1) calendarId (correo del calendario), (2) summary (nombre del paciente), " +
-                          "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City. " +
+                          "Extrae del texto: (1) summary (nombre del paciente), (2) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City. " +
                           "El usuario siempre proporcionará fecha completa con año (ej. 16 de octubre del 2026) y hora. " +
                           "NO inventes datos. Si falta algo para agendar o si el usuario hace una pregunta general, llama a reply_message. " +
                           "Devuelve exactamente 1 tool-call."
@@ -370,16 +369,6 @@ public class ChatBot
             throw new FormatException("No se pudieron leer los argumentos de la herramienta schedule_appointment.", ex);
         }
 
-        if (string.IsNullOrWhiteSpace(args.CalendarId))
-        {
-            return new AiToolActionResultDto
-            {
-                ToolName = "reply_message",
-                ArgumentsJson = string.Empty,
-                ReplyMessage = "¿Cuál es el calendarId (correo del calendario) para agendar la cita?"
-            };
-        }
-
         if (string.IsNullOrWhiteSpace(args.Summary))
         {
             return new AiToolActionResultDto
@@ -402,13 +391,26 @@ public class ChatBot
 
         CreateCalendarEventRequestDto createReq = new CreateCalendarEventRequestDto
         {
-            CalendarId = args.CalendarId,
             Summary = args.Summary,
             StartTime = start.ToString("O"),
             EndTime = start.Add(DefaultDuration).ToString("O")
         };
 
-        CreateCalendarEventResponseDto created = await _calendarService.CreateEventAsync(createReq);
+        CreateCalendarEventResponseDto created;
+        try
+        {
+            created = await _calendarService.CreateEventAsync(createReq);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al crear evento de calendario desde schedule_appointment.");
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "No pudimos agendar su cita en este momento. Intente más tarde."
+            };
+        }
 
         return new AiToolActionResultDto
         {
@@ -429,16 +431,14 @@ public class ChatBot
     private const string ScheduleAppointmentArgsJsonSchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"properties\": {\n" +
-        "    \"calendarId\": { \"type\": \"string\", \"description\": \"Id del calendario destino (correo)\" },\n" +
         "    \"summary\": { \"type\": \"string\", \"description\": \"Nombre del paciente para el summary\" },\n" +
         "    \"startTime\": { \"type\": \"string\", \"description\": \"Fecha/hora inicio ISO-8601\" }\n" +
         "  },\n" +
-        "  \"required\": [\"calendarId\", \"summary\", \"startTime\" ]\n" +
+        "  \"required\": [\"summary\", \"startTime\" ]\n" +
         "}";
 
     private sealed class ScheduleAppointmentArgs
     {
-        public string CalendarId { get; set; } = string.Empty;
         public string Summary { get; set; } = string.Empty;
         public string StartTime { get; set; } = string.Empty;
     }

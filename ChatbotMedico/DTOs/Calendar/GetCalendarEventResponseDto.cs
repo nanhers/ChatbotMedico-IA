@@ -3,7 +3,6 @@ namespace ChatbotMedico.DTOs.Calendar;
 public sealed class GetCalendarEventResponseDto
 {
     public string EventId { get; set; } = string.Empty;
-    public string CalendarId { get; set; } = string.Empty;
     public string? Summary { get; set; }
     public string? HtmlLink { get; set; }
     public string StartTime { get; set; } = string.Empty;

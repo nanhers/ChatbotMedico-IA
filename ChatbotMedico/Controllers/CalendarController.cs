@@ -28,7 +28,7 @@ public sealed class CalendarController : ControllerBase
             // Nota: GetById existe para soportar CreatedAtAction.
             return CreatedAtAction(
                 nameof(GetById),
-                new { id = created.EventId, calendarId = created.CalendarId },
+                new { id = created.EventId },
                 created);
         }
         catch (CalendarService.ValidationProblemException ex)
@@ -63,12 +63,11 @@ public sealed class CalendarController : ControllerBase
 
     [HttpGet("{id}")]
     public async Task<ActionResult<GetCalendarEventResponseDto>> GetById(
-        [FromRoute] string id,
-        [FromQuery] string calendarId)
+        [FromRoute] string id)
     {
         try
         {
-            var ev = await _calendarService.GetByIdAsync(calendarId, id);
+            var ev = await _calendarService.GetByIdAsync(id);
             if (ev is null) return NotFound();
             return Ok(ev);
         }

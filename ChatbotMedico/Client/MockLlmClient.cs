@@ -12,7 +12,7 @@ public sealed class MockLlmClient : ILlmClient
         new LlmToolCallDto
         {
             Name = "schedule_appointment",
-            ArgumentsJson = "{\"calendarId\":\"fake-calendar@invalid\",\"startTime\":\"2026-10-25T10:00:00-06:00\",\"summary\":\"Juan Perez\"}"
+            ArgumentsJson = "{\"startTime\":\"2026-10-25T10:00:00-06:00\",\"summary\":\"Juan Perez\"}"
         }
     ];
 

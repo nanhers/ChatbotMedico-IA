@@ -133,7 +133,7 @@ public sealed class ChatbotReplyMessageToolTests
                 ToolCalls =
                 [
                     new LlmToolCallDto { Name = "reply_message", ArgumentsJson = "{\"message\":\"primero\"}" },
-                    new LlmToolCallDto { Name = "schedule_appointment", ArgumentsJson = "{\"calendarId\":\"x\",\"summary\":\"y\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}" }
+                    new LlmToolCallDto { Name = "schedule_appointment", ArgumentsJson = "{\"summary\":\"y\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}" }
                 ]
             });
 

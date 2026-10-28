@@ -1,6 +1,7 @@
 using ChatbotMedico.Client.Interfaces;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -11,10 +12,18 @@ public sealed class CalendarServiceTests
     private const string DefaultCalendarId = "primary";
     private const string DefaultTimeZone = "America/Mexico_City";
 
-    private static CalendarService CreateSut(Mock<ICalendarClient> clientMock)
+    private static CalendarService CreateSut(Mock<ICalendarClient> clientMock, string calendarId = DefaultCalendarId)
     {
         var logger = Mock.Of<ILogger<CalendarService>>();
-        return new CalendarService(clientMock.Object, logger);
+
+        IConfiguration config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Calendar:CalendarId"] = calendarId
+            })
+            .Build();
+
+        return new CalendarService(clientMock.Object, logger, config);
     }
 
     private static void SetupCalendarTimeZone(Mock<ICalendarClient> clientMock, string calendarId = DefaultCalendarId, string timeZone = DefaultTimeZone)
@@ -51,7 +60,6 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
@@ -72,7 +80,6 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = "2026-10-09T10:00:00-06:00",
             EndTime = "2026-10-09T10:00:00-06:00",
@@ -111,7 +118,6 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
@@ -150,7 +156,6 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            CalendarId = DefaultCalendarId,
             Summary = "Cita",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
@@ -161,5 +166,21 @@ public sealed class CalendarServiceTests
 
         Assert.Equal("evt123", result.EventId);
         clientMock.Verify(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone), Times.Once);
+    }
+
+    [Fact]
+    public void Constructor_WhenCalendarIdConfigIsMissing_ThrowsInvalidOperationException()
+    {
+        var clientMock = new Mock<ICalendarClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<CalendarService>>();
+
+        IConfiguration config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Calendar:CalendarId"] = " "
+            })
+            .Build();
+
+        Assert.Throws<InvalidOperationException>(() => new CalendarService(clientMock.Object, logger, config));
     }
 }

@@ -2,6 +2,7 @@ using ChatbotMedico.Client.Interfaces;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace ChatbotMedico.Services;
 
@@ -9,43 +10,50 @@ public sealed class CalendarService : ICalendarService
 {
     private readonly ICalendarClient _calendarClient;
     private readonly ILogger<CalendarService> _logger;
+    private readonly string _calendarId;
 
-    public CalendarService(ICalendarClient calendarClient, ILogger<CalendarService> logger)
+    public CalendarService(ICalendarClient calendarClient, ILogger<CalendarService> logger, IConfiguration configuration)
     {
         _calendarClient = calendarClient;
         _logger = logger;
+
+        _calendarId = configuration["Calendar:CalendarId"]?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(_calendarId))
+        {
+            throw new InvalidOperationException("Falta configuración obligatoria: Calendar:CalendarId");
+        }
     }
 
     public async Task<CreateCalendarEventResponseDto> CreateEventAsync(CreateCalendarEventRequestDto request)
     {
-        Dictionary<string, string[]> errors = ValidateCreateRequest(request, out string calendarId, out string summary, out DateTimeOffset start, out DateTimeOffset end);
+        Dictionary<string, string[]> errors = ValidateCreateRequest(request, out string summary, out DateTimeOffset start, out DateTimeOffset end);
         if (errors.Count > 0)
         {
             throw new ValidationProblemException(errors);
         }
 
-        string calendarTimeZone = await ResolveCalendarTimeZoneOrThrowAsync(calendarId);
+        string calendarTimeZone = await ResolveCalendarTimeZoneOrThrowAsync(_calendarId);
 
         _logger.LogInformation(
             "Calendar: validando traslape calendarId={CalendarId} start={Start} end={End} timeZone={TimeZone}",
-            calendarId,
+            _calendarId,
             start,
             end,
             calendarTimeZone);
 
         // Buscar eventos solo en la ventana solicitada y validar traslape.
-        IReadOnlyList<CalendarEventInfo> existing = await _calendarClient.ListEventsAsync(calendarId, start, end, calendarTimeZone);
+        IReadOnlyList<CalendarEventInfo> existing = await _calendarClient.ListEventsAsync(_calendarId, start, end, calendarTimeZone);
 
         if (HasOverlap(existing.Select(e => e.Interval), start, end))
         {
             throw new ScheduleConflictException("Conflicto de agenda: el intervalo solicitado se traslapa con un evento existente.");
         }
 
-        CalendarEventInfo created = await _calendarClient.CreateEventAsync(calendarId, summary, start, end, calendarTimeZone);
+        CalendarEventInfo created = await _calendarClient.CreateEventAsync(_calendarId, summary, start, end, calendarTimeZone);
 
         _logger.LogInformation(
             "Calendar: evento creado calendarId={CalendarId} eventId={EventId} start={Start} end={End} timeZone={TimeZone} htmlLink={HtmlLink}",
-            created.CalendarId,
+            _calendarId,
             created.EventId,
             created.Interval.Start,
             created.Interval.End,
@@ -55,7 +63,6 @@ public sealed class CalendarService : ICalendarService
         return new CreateCalendarEventResponseDto
         {
             EventId = created.EventId,
-            CalendarId = created.CalendarId,
             HtmlLink = created.HtmlLink,
             StartTime = request.StartTime!,
             EndTime = request.EndTime!,
@@ -63,17 +70,16 @@ public sealed class CalendarService : ICalendarService
         };
     }
 
-    public async Task<GetCalendarEventResponseDto?> GetByIdAsync(string calendarId, string eventId)
+    public async Task<GetCalendarEventResponseDto?> GetByIdAsync(string eventId)
     {
-        string calendarTimeZone = await ResolveCalendarTimeZoneOrThrowAsync(calendarId);
+        string calendarTimeZone = await ResolveCalendarTimeZoneOrThrowAsync(_calendarId);
 
-        CalendarEventInfo? info = await _calendarClient.GetEventAsync(calendarId, eventId, calendarTimeZone);
+        CalendarEventInfo? info = await _calendarClient.GetEventAsync(_calendarId, eventId, calendarTimeZone);
         if (info is null) return null;
 
         return new GetCalendarEventResponseDto
         {
             EventId = info.EventId,
-            CalendarId = info.CalendarId,
             Summary = info.Summary,
             HtmlLink = info.HtmlLink,
             StartTime = info.Interval.Start.ToString("O"),
@@ -118,22 +124,17 @@ public sealed class CalendarService : ICalendarService
 
     private static Dictionary<string, string[]> ValidateCreateRequest(
         CreateCalendarEventRequestDto request,
-        out string calendarId,
         out string summary,
         out DateTimeOffset start,
         out DateTimeOffset end)
     {
         Dictionary<string, string[]> errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        calendarId = request.CalendarId?.Trim() ?? string.Empty;
         summary = request.Summary?.Trim() ?? string.Empty;
 
         // Inicializar out params para evitar CS0177/CS0269
         start = default;
         end = default;
-
-        if (string.IsNullOrWhiteSpace(calendarId))
-            errors["calendar_id"] = ["calendar_id es obligatorio."];
 
         if (string.IsNullOrWhiteSpace(summary))
             errors["summary"] = ["summary es obligatorio."];

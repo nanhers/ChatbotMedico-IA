@@ -22,7 +22,6 @@ public sealed class ChatbotWhatsAppTests
     }
 
     private static LlmResponseDto ToolCallResponse(
-        string calendarId = "fake-calendar@invalid",
         string summary = "Juan Perez",
         string startTime = "2026-10-16T10:00:00-06:00")
         => new LlmResponseDto
@@ -33,20 +32,18 @@ public sealed class ChatbotWhatsAppTests
                 new LlmToolCallDto
                 {
                     Name = "schedule_appointment",
-                    ArgumentsJson = $"{{\"calendarId\":\"{calendarId}\",\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
+                    ArgumentsJson = $"{{\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
                 }
             ]
         };
 
     private static CreateCalendarEventResponseDto CalendarOk(
         string eventId,
-        string calendarId,
         string startTime,
         string endTime)
         => new CreateCalendarEventResponseDto
         {
             EventId = eventId,
-            CalendarId = calendarId,
             StartTime = startTime,
             EndTime = endTime,
             TimeZone = "America/Mexico_City"
@@ -66,7 +63,6 @@ public sealed class ChatbotWhatsAppTests
         calendar.Setup(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
             .ReturnsAsync(CalendarOk(
                 eventId: "evt_whatsapp_ok",
-                calendarId: "fake-calendar@invalid",
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 

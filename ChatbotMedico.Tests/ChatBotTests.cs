@@ -70,6 +70,7 @@ public sealed class ChatBotTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
             {
+                PhoneNumber = "user1",
                 Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
             }, CancellationToken.None));
 
@@ -92,6 +93,7 @@ public sealed class ChatBotTests
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
+            PhoneNumber = "user1",
             Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
         }, CancellationToken.None);
 
@@ -140,6 +142,7 @@ public sealed class ChatBotTests
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
+            PhoneNumber = "user1",
             Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
         }, CancellationToken.None);
 
@@ -190,6 +193,7 @@ public sealed class ChatBotTests
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
+            PhoneNumber = "user1",
             Text = "Hola soy Juan Perez quiero agendar una cita para el 25 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid."
         }, CancellationToken.None);
 

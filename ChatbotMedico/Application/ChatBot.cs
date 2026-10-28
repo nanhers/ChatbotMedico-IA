@@ -96,7 +96,7 @@ public class ChatBot
 
                     try
                     {
-                        AiInterpretRequestDto req = new AiInterpretRequestDto { Text = body };
+                        AiInterpretRequestDto req = new AiInterpretRequestDto { PhoneNumber = from, Text = body };
                         AiToolActionResultDto action = await InterpretAndScheduleAsync(req, ct);
                         processed++;
 
@@ -157,14 +157,36 @@ public class ChatBot
 
     public async Task<AiToolActionResultDto> InterpretAndScheduleAsync(AiInterpretRequestDto request, CancellationToken ct)
     {
-        Dictionary<string, string[]> errors = ValidateRequest(request, out string text);
+        Dictionary<string, string[]> errors = ValidateRequest(request, out string phoneDigits, out string text);
         if (errors.Count > 0)
         {
             KeyValuePair<string, string[]> first = errors.First();
             throw new ArgumentException(first.Value.FirstOrDefault() ?? "Datos inválidos", first.Key);
         }
 
-        LlmRequestDto llmRequest = BuildLlmRequest(text);
+        List<LlmMessageDto> historyMessages = new List<LlmMessageDto>();
+        try
+        {
+            ChatHistoryConversationDto? conversation = await _chatHistoryService.GetAsync(phoneDigits, ct);
+            if (conversation?.Messages is not null && conversation.Messages.Count > 0)
+            {
+                foreach (ChatHistoryMessageDto m in conversation.Messages)
+                {
+                    if (TryMapHistoryMessageToLlmMessage(m, out LlmMessageDto? mapped) && mapped is not null)
+                    {
+                        historyMessages.Add(mapped);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo recuperar historial de Firestore; se continuará sin historial. phone={Phone}", phoneDigits);
+        }
+
+        _logger.LogInformation("Construyendo prompt con historial. phone={Phone} historyMessages={HistoryCount}", phoneDigits, historyMessages.Count);
+
+        LlmRequestDto llmRequest = BuildLlmRequest(historyMessages);
 
         // Invocamos al LLM y capturamos cualquier excepción para loguearla
         LlmResponseDto response;
@@ -215,27 +237,33 @@ public class ChatBot
         return await ExecuteToolCall(toolCall, ct);
     }
 
-    private static LlmRequestDto BuildLlmRequest(string text)
+    private static LlmRequestDto BuildLlmRequest( List<LlmMessageDto> historyMessages)
     {
+        List<LlmMessageDto> messages = new List<LlmMessageDto>
+        {
+            new LlmMessageDto
+            {
+                Role = "system",
+                Content = "Eres un asistente para agendar citas médicas por WhatsApp. " +
+                          "Tienes dos herramientas: (1) schedule_appointment para agendar una cita en Google Calendar y " +
+                          "(2) reply_message para responder al usuario (incluyendo pedir datos faltantes o responder preguntas generales). " +
+                          "Cuando el usuario quiera agendar y tengas TODOS los datos, llama a schedule_appointment. " +
+                          "Extrae del texto: (1) calendarId (correo del calendario), (2) summary (nombre del paciente), " +
+                          "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City. " +
+                          "El usuario siempre proporcionará fecha completa con año (ej. 16 de octubre del 2026) y hora. " +
+                          "NO inventes datos. Si falta algo para agendar o si el usuario hace una pregunta general, llama a reply_message. " +
+                          "Devuelve exactamente 1 tool-call."
+            }
+        };
+
+        if (historyMessages is not null && historyMessages.Count > 0)
+        {
+            messages.AddRange(historyMessages);
+        }
+
         return new LlmRequestDto
         {
-            Messages =
-            [
-                new LlmMessageDto
-                {
-                    Role = "system",
-                    Content = "Eres un asistente para agendar citas médicas por WhatsApp. " +
-                              "Tienes dos herramientas: (1) schedule_appointment para agendar una cita en Google Calendar y " +
-                              "(2) reply_message para responder al usuario (incluyendo pedir datos faltantes o responder preguntas generales). " +
-                              "Cuando el usuario quiera agendar y tengas TODOS los datos, llama a schedule_appointment. " +
-                              "Extrae del texto: (1) calendarId (correo del calendario), (2) summary (nombre del paciente), " +
-                              "(3) startTime en ISO-8601. Asume que la zona horaria es America/Mexico_City. " +
-                              "El usuario siempre proporcionará fecha completa con año (ej. 16 de octubre del 2026) y hora. " +
-                              "NO inventes datos. Si falta algo para agendar o si el usuario hace una pregunta general, llama a reply_message. " +
-                              "Devuelve exactamente 1 tool-call."
-                },
-                new LlmMessageDto { Role = "user", Content = text }
-            ],
+            Messages = messages,
             Tools =
             [
                 new LlmToolDefinitionDto
@@ -415,15 +443,46 @@ public class ChatBot
         public string StartTime { get; set; } = string.Empty;
     }
 
-    private static Dictionary<string, string[]> ValidateRequest(AiInterpretRequestDto request, out string text)
+    private static Dictionary<string, string[]> ValidateRequest(AiInterpretRequestDto request, out string phoneDigits, out string text)
     {
         Dictionary<string, string[]> errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        text = request.Text?.Trim() ?? string.Empty;
 
+        string phoneNumber = request.PhoneNumber?.Trim() ?? string.Empty;
+        phoneDigits = NormalizePhoneDigits(phoneNumber);
+
+        if (string.IsNullOrWhiteSpace(phoneDigits))
+            errors["phoneNumber"] = ["phoneNumber es obligatorio."];
+
+        text = request.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(text))
             errors["text"] = ["text es obligatorio."];
 
         return errors;
+    }
+
+    private static bool TryMapHistoryMessageToLlmMessage(ChatHistoryMessageDto historyMessage, out LlmMessageDto? llmMessage)
+    {
+        llmMessage = null;
+        if (historyMessage is null) return false;
+
+        string role = historyMessage.Role?.Trim().ToLowerInvariant() ?? string.Empty;
+        string content = historyMessage.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(role) || string.IsNullOrWhiteSpace(content)) return false;
+
+        // Firestore usa role=model; para GeminiLlmClient debemos pasar assistant para que lo traduzca a model.
+        if (role == "user")
+        {
+            llmMessage = new LlmMessageDto { Role = "user", Content = content };
+            return true;
+        }
+
+        if (role == "model")
+        {
+            llmMessage = new LlmMessageDto { Role = "assistant", Content = content };
+            return true;
+        }
+
+        return false;
     }
 
     private static string NormalizePhoneDigits(string input)

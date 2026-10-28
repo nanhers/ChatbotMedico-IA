@@ -48,7 +48,7 @@ public sealed class ChatbotReplyMessageToolTests
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
-            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Quiero una cita" },
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Quiero una cita" },
             CancellationToken.None);
 
         Assert.Equal("reply_message", result.ToolName);
@@ -75,7 +75,7 @@ public sealed class ChatbotReplyMessageToolTests
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
-            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
             CancellationToken.None);
 
         Assert.Equal("No pude interpretar tu mensaje para agendar cita.", result.ReplyMessage);
@@ -107,7 +107,7 @@ public sealed class ChatbotReplyMessageToolTests
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
-            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
             CancellationToken.None);
 
         Assert.Equal("unknown_tool", result.ToolName);
@@ -141,7 +141,7 @@ public sealed class ChatbotReplyMessageToolTests
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
-            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { Text = "Hola" },
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
             CancellationToken.None);
 
         Assert.Equal("reply_message", result.ToolName);

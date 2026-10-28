@@ -23,6 +23,14 @@ public sealed class ChatHistoryService : IChatHistoryService
         _maxHistoryMessages = configured.Value;
     }
 
+    public Task<ChatHistoryConversationDto?> GetAsync(string phoneDigits, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(phoneDigits))
+            throw new ArgumentException("phoneDigits es obligatorio.", nameof(phoneDigits));
+
+        return _repo.GetAsync(phoneDigits, ct);
+    }
+
     public async Task AppendAsync(string phoneDigits, ChatHistoryMessageDto message, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(phoneDigits))

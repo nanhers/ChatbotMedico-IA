@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.HttpOverrides;
+﻿using Google.Cloud.Firestore;
+using Google.Cloud.Firestore.V1;
+using Grpc.Net.Client;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +14,31 @@ builder.Services.AddControllers();
 // Swagger / OpenAPI (solo requiere el paquete Swashbuckle.AspNetCore)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// FirestoreDb
+builder.Services.AddSingleton(sp =>
+{
+    var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("FirestoreDb");
+
+    if (builder.Environment.IsDevelopment())
+    {
+        string projectId = builder.Configuration["Firestore:ProjectId"] ?? "demo-chatbotmedico";
+        string host = builder.Configuration["Firestore:EmulatorHost"] ?? "127.0.0.1";
+        int port = builder.Configuration.GetValue<int?>("Firestore:EmulatorPort") ?? 8080;
+
+        // Forzar emulador SIN ADC: creamos un GrpcChannel inseguro hacia el emulador.
+        // (Con FIRESTORE_EMULATOR_HOST a veces el SDK sigue intentando resolver credenciales.)
+        var channel = GrpcChannel.ForAddress($"http://{host}:{port}");
+        var client = new FirestoreClientBuilder { Endpoint = $"{host}:{port}", ChannelCredentials = Grpc.Core.ChannelCredentials.Insecure }.Build();
+        var db = FirestoreDb.Create(projectId, client);
+
+        logger.LogInformation("Using Firestore Emulator. projectId={ProjectId} host={Host} port={Port}", projectId, host, port);
+        return db;
+    }
+
+    logger.LogInformation("Using Firestore via ADC (non-Development environment)");
+    return FirestoreDb.Create();
+});
 
 // DI
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();

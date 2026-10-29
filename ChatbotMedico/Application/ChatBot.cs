@@ -17,6 +17,7 @@ public class ChatBot
     private readonly ICalendarService _calendarService;
     private readonly IMessageClient _messageClient;
     private readonly IChatHistoryService _chatHistoryService;
+    private readonly IWebhookSignatureValidator _signatureValidator;
     private readonly ILogger<ChatBot> _logger;
 
     public ChatBot(
@@ -24,13 +25,38 @@ public class ChatBot
         ICalendarService calendarService,
         IMessageClient messageClient,
         IChatHistoryService chatHistoryService,
+        IWebhookSignatureValidator signatureValidator,
         ILogger<ChatBot> logger)
     {
         _llm = llm;
         _calendarService = calendarService;
         _messageClient = messageClient;
         _chatHistoryService = chatHistoryService;
+        _signatureValidator = signatureValidator;
         _logger = logger;
+    }
+
+    public async Task<bool> ProcessWhatsAppWebhookAsync(byte[] rawBody, string? signatureHeader, CancellationToken ct)
+    {
+        if (!_signatureValidator.IsValid(rawBody, signatureHeader))
+        {
+            _logger.LogWarning("[WEBHOOK POST] Firma inválida. Respondiendo 401.");
+            return false;
+        }
+
+        JsonElement payload;
+        try
+        {
+            payload = JsonDocument.Parse(rawBody).RootElement;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[WEBHOOK POST] JSON inválido con firma válida. Se responderá 200 para evitar reintentos.");
+            return true;
+        }
+
+        await ProcessWhatsAppWebhookAsync(payload, ct);
+        return true;
     }
 
     public async Task<int> ProcessWhatsAppWebhookAsync(JsonElement payload, CancellationToken ct)

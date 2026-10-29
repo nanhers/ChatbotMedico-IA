@@ -4,6 +4,7 @@ using ChatbotMedico.Client.Interfaces;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.DTOs.LLM;
 using ChatbotMedico.Services.Interfaces;
+using ChatbotMedico.Tests.TestDoubles;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -71,7 +72,10 @@ public sealed class ChatbotWhatsAppTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
+        signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
+
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             from: "5215550000001",
@@ -113,7 +117,10 @@ public sealed class ChatbotWhatsAppTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
+        signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
+
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
         JsonElement payload = BuildWebhookPayload(
             from: "5215550000002",

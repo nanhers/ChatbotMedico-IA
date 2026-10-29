@@ -1,6 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.IO;
 using ChatbotMedico.Application;
-using ChatbotMedico.DTOs.AI;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatbotMedico.Controllers
@@ -9,6 +8,8 @@ namespace ChatbotMedico.Controllers
     [Route("webhook")]
     public class WebhookController : ControllerBase
     {
+        private const string SignatureHeaderName = "X-Hub-Signature-256";
+
         private readonly IConfiguration _configuration;
         private readonly ChatBot _chatBot;
         private readonly ILogger<WebhookController> _logger;
@@ -48,11 +49,27 @@ namespace ChatbotMedico.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] JsonElement payload, CancellationToken ct)
+        public async Task<IActionResult> Post(CancellationToken ct)
         {
+            string? signatureHeader = Request.Headers[SignatureHeaderName].FirstOrDefault();
+
+            byte[] rawBody;
             try
             {
-                await _chatBot.ProcessWhatsAppWebhookAsync(payload, ct);
+                using var ms = new MemoryStream();
+                await Request.Body.CopyToAsync(ms, ct);
+                rawBody = ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[WEBHOOK POST] Error leyendo raw body.");
+                return Unauthorized();
+            }
+
+            try
+            {
+                bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, signatureHeader, ct);
+                return ok ? Ok() : Unauthorized();
             }
             catch (Exception ex)
             {
@@ -60,8 +77,6 @@ namespace ChatbotMedico.Controllers
                 _logger.LogError(ex, "[WEBHOOK POST] Error delegando el procesamiento del webhook.");
                 return Ok();
             }
-
-            return Ok();
         }
     }
 }

@@ -5,6 +5,7 @@ using ChatbotMedico.DTOs.AI;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.DTOs.LLM;
 using ChatbotMedico.Services.Interfaces;
+using ChatbotMedico.Tests.TestDoubles;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -64,7 +65,10 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
+        signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
+
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
@@ -88,7 +92,10 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
+        signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
+
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
@@ -135,7 +142,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
@@ -184,7 +191,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         var result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
         {
@@ -206,7 +213,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = ParseJson("[]");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -225,7 +232,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = ParseJson("{}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -244,7 +251,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayloadWithMessagesJson("{\"from\":\"user1\",\"type\":\"image\"}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -263,7 +270,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayloadWithMessagesJson("{\"from\":\"user1\",\"type\":\"text\"}");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -284,7 +291,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayload(body);
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -316,7 +323,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayload("Hola quiero una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid");
         int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
@@ -351,7 +358,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayload(
             "Mensaje 1",
@@ -386,7 +393,7 @@ public sealed class ChatBotTests
 
         var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
         JsonElement payload = BuildWebhookPayload(
             "Mensaje que truena",

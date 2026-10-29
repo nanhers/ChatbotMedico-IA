@@ -11,14 +11,11 @@ public sealed class FirestoreChatHistoryRepository : IChatHistoryRepository
     private readonly FirestoreDb _db;
     private readonly ILogger<FirestoreChatHistoryRepository> _logger;
 
-    public FirestoreChatHistoryRepository(ILogger<FirestoreChatHistoryRepository> logger)
+    public FirestoreChatHistoryRepository(FirestoreDb db, ILogger<FirestoreChatHistoryRepository> logger)
     {
         _collectionName = "conversations";
+        _db = db;
         _logger = logger;
-
-        // En Cloud Run (y local con gcloud auth / GOOGLE_APPLICATION_CREDENTIALS), esto usa ADC.
-        // FirestoreDb.Create infiere el projectId del ambiente; si no, se puede configurar explícitamente.
-        _db = FirestoreDb.Create();
     }
 
     public async Task<ChatHistoryConversationDto?> GetAsync(string phoneDigits, CancellationToken ct)

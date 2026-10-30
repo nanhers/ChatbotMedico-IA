@@ -66,31 +66,9 @@ namespace ChatbotMedico.Controllers
                 return Unauthorized();
             }
 
-            // Inicio logs signature
-            _logger.LogInformation(
-                "[WEBHOOK POST][SIGNATURE DIAG] Header '{HeaderName}' present={HeaderPresent} length={HeaderLength} value='{HeaderValue}'",
-                SignatureHeaderName,
-                !string.IsNullOrWhiteSpace(signatureHeader),
-                signatureHeader?.Length ?? 0,
-                signatureHeader ?? "<null>");
-
-            _logger.LogInformation(
-                "[WEBHOOK POST][SIGNATURE DIAG] rawBodyLength={RawBodyLength} contentType='{ContentType}' method={Method} path='{Path}'",
-                rawBody?.Length ?? 0,
-                Request.ContentType ?? "<null>",
-                Request.Method,
-                Request.Path.Value ?? "<null>");
-            // Fin logs signature
-
             try
             {
                 bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, signatureHeader, ct);
-
-                // Inicio logs signature
-                _logger.LogWarning(
-                    "[WEBHOOK POST][SIGNATURE DIAG] ProcessWhatsAppWebhookAsync ok={Ok}",
-                    ok);
-                // Fin logs signature
 
                 return ok ? Ok() : Unauthorized();
             }

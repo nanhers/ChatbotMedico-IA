@@ -34,6 +34,48 @@ public sealed class CalendarService : ICalendarService
 
         string calendarTimeZone = await ResolveCalendarTimeZoneOrThrowAsync(_calendarId);
 
+        // Validación: no agendar en el pasado (con tolerancia 60s) respecto a la zona horaria del calendario.
+        // Nota: solo hacemos fallback a America/Mexico_City cuando NO se puede resolver el ID de zona horaria en el host.
+        const int PastDateGraceSeconds = 60;
+        DateTimeOffset utcNow = DateTimeOffset.UtcNow;
+
+        TimeZoneInfo tz;
+        try
+        {
+            tz = TimeZoneInfo.FindSystemTimeZoneById(calendarTimeZone);
+        }
+        catch
+        {
+            try
+            {
+                tz = TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
+            }
+            catch
+            {
+                tz = TimeZoneInfo.Utc;
+            }
+        }
+
+        // Nota: el sistema hoy opera con TZ base America/Mexico_City (ver prompt del bot) y los tests usan -06:00.
+        // Para evitar falsos positivos por diferencias de TZ en el host, validamos contra el "ahora" local del host.
+        DateTimeOffset minAllowedStartLocal = DateTimeOffset.Now.AddSeconds(-PastDateGraceSeconds);
+
+        if (start < minAllowedStartLocal)
+        {
+            throw new ValidationProblemException(new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["start_time"] = [$"start_time no puede estar en el pasado (tolerancia {PastDateGraceSeconds}s)."]
+            });
+        }
+
+        if (end < minAllowedStartLocal)
+        {
+            throw new ValidationProblemException(new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["end_time"] = [$"end_time no puede estar en el pasado (tolerancia {PastDateGraceSeconds}s)."]
+            });
+        }
+
         _logger.LogInformation(
             "Calendar: validando traslape calendarId={CalendarId} start={Start} end={End} timeZone={TimeZone}",
             _calendarId,

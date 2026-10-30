@@ -140,6 +140,19 @@ public class ChatBot
                             else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
                             {
                                 const string reply = "Su cita quedó agendada.";
+
+                                // Borrar historial ANTES de enviar confirmación final.
+                                string phoneDigits = NormalizePhoneDigits(from);
+                                try
+                                {
+                                    await _chatHistoryService.DeleteAsync(phoneDigits, ct);
+                                }
+                                catch (Exception delEx)
+                                {
+                                    // No bloquear: solo log y continuar.
+                                    _logger.LogWarning(delEx, "No se pudo borrar historial tras agendar cita. phone={Phone}", phoneDigits);
+                                }
+
                                 await PersistModelReplyAsync(from, reply, ct);
                                 await _messageClient.SendTextAsync(from, reply, ct);
                             }
@@ -260,7 +273,7 @@ public class ChatBot
             };
         }
 
-        return await ExecuteToolCall(toolCall, ct);
+        return await ExecuteToolCall(toolCall, phoneDigits, ct);
     }
 
     private static LlmRequestDto BuildLlmRequest( List<LlmMessageDto> historyMessages)
@@ -328,7 +341,7 @@ public class ChatBot
     }
 
     
-    private async Task<AiToolActionResultDto> ExecuteToolCall(LlmToolCallDto toolCall, CancellationToken ct)
+    private async Task<AiToolActionResultDto> ExecuteToolCall(LlmToolCallDto toolCall, string phoneDigits, CancellationToken ct)
     {
         string toolName = toolCall.Name?.Trim() ?? string.Empty;
         string argsJson = toolCall.ArgumentsJson ?? string.Empty;
@@ -351,7 +364,7 @@ public class ChatBot
 
         if (string.Equals(toolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
         {
-            return await ExecuteScheduleAppointmentToolCallAsync(toolName, argsJson, ct);
+            return await ExecuteScheduleAppointmentToolCallAsync(toolName, argsJson, phoneDigits, ct);
         }
 
         return new AiToolActionResultDto
@@ -395,7 +408,7 @@ public class ChatBot
         };
     }
 
-    private async Task<AiToolActionResultDto> ExecuteScheduleAppointmentToolCallAsync(string toolName, string argsJson, CancellationToken ct)
+    private async Task<AiToolActionResultDto> ExecuteScheduleAppointmentToolCallAsync(string toolName, string argsJson, string phoneDigits, CancellationToken ct)
     {
         
         ScheduleAppointmentArgs args;

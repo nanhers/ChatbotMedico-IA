@@ -61,6 +61,14 @@ public sealed class ChatHistoryService : IChatHistoryService
         await _repo.UpdateAsync(existing, ct);
     }
 
+    public Task DeleteAsync(string phoneDigits, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(phoneDigits))
+            throw new ArgumentException("phoneDigits es obligatorio.", nameof(phoneDigits));
+
+        return _repo.DeleteAsync(phoneDigits, ct);
+    }
+
     private static List<ChatHistoryMessageDto> TrimToMax(List<ChatHistoryMessageDto> messages, int max)
     {
         if (messages.Count <= max) return messages;

@@ -282,19 +282,20 @@ public class ChatBot
                             "    </security_guardrails>\n" +
                             "    <tools_available>\n" +
                             "        (1) schedule_appointment: Para registrar la cita en Google Calendar.\n" +
-                            "        (2) reply_message: Para comunicarte con el usuario para solicitar datos faltantes.\n" +
+                            "        (2) reply_message: Para comunicarte con el usuario para solicitar datos faltantes o pedir confirmación.\n" +
                             "    </tools_available>\n" +
                             "    <operational_rules>\n" +
-                            "        1. Cuando el usuario desee agendar y dispongas de TODOS los datos necesarios, llama obligatoriamente a schedule_appointment.\n" +
-                            "        2. Extracción de datos requeridos para schedule_appointment: (a) summary (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
-                            "        3. Orientación temporal y validación de fechas:\n" +
-                            "           - Momento actual del sistema: " + currentDate + ".\n" +
-                            "           - Guíate con esta fecha y hora para situarte en el tiempo. Si el usuario omite el año al dar una fecha numérica, interprétala utilizando el año actual (" + currentYear + "); sin embargo, si esa fecha ya ocurrió en el transcurso del año actual, asume inteligentemente que corresponde al próximo año (" + (currentYear + 1) + ").\n" +
-                            "           - Si el usuario menciona únicamente un día de la semana sin fecha numérica (ej. 'quiero agendar el martes'), asume automáticamente que se refiere al **próximo martes más cercano** a partir de la fecha y hora actual del sistema.\n" +
-                            "           - PROHIBIDO agendar citas para fechas u horas que ya hayan pasado respecto al momento actual.\n" +
-                            "           - Validación de días de la semana: Si el usuario proporciona una fecha numérica combinada con un día que no coincide (ej. 'sábado 29 de octubre', cuando el 29 no cae en sábado), NO agendes de inmediato; usa reply_message para alertar de la discrepancia y pedirle confirmación al usuario si está seguro de la fecha.\n" +
-                            "        4. PROHIBIDO inventar datos. Si falta información para agendar, si hay discrepancias de fechas debes invocar reply_message.\n" +
-                            "        5. Devuelve exactamente 1 tool-call por turno.\n" +
+                            "        1. REGLA CRÍTICA DE CONFIRMACIÓN: Aunque dispongas de todos los datos (nombre y fecha/hora), **está estrictamente prohibido llamar a schedule_appointment de inmediato**. Primero debes usar obligatoriamente `reply_message` para mostrarle al usuario un resumen de los datos recolectados y preguntarle explícitamente si confirma que son correctos.\n" +
+                            "        2. SOLO puedes invocar `schedule_appointment` si en el historial de la conversación **ya existe un mensaje previo tuyo pidiendo confirmación** y un mensaje de respuesta del usuario donde confirme expresamente que todo es correcto (ej. 'sí', 'correcto', 'confirmo', 'adelante'). Si el usuario no ha confirmado explícitamente en el turno anterior, debes seguir usando `reply_message`.\n" +
+                            "        3. Extracción de datos requeridos para schedule_appointment: (a) summary (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
+                            "        4. Orientación temporal y validación de fechas:\n" +
+                            "            - Momento actual del sistema: " + currentDate + ".\n" +
+                            "            - Guíate con esta fecha y hora para situarte en el tiempo. Si el usuario omite el año al dar una fecha numérica, interprétala utilizando el año actual (" + currentYear + "); sin embargo, si esa fecha ya ocurrió en el transcurso del año actual, asume inteligentemente que corresponde al próximo año (" + (currentYear + 1) + ").\n" +
+                            "            - Si el usuario menciona únicamente un día de la semana sin fecha numérica (ej. 'quiero agendar el martes'), asume automáticamente que se refiere al **próximo martes más cercano** a partir de la fecha y hora actual del sistema.\n" +
+                            "            - PROHIBIDO agendar citas para fechas u horas que ya hayan pasado respecto al momento actual.\n" +
+                            "            - Validación de días de la semana: Si el usuario proporciona una fecha numérica combinada con un día que no coincide (ej. 'sábado 29 de octubre', cuando el 29 no cae en sábado), NO agendes de inmediato; usa reply_message para alertar de la discrepancia y pedirle confirmación al usuario.\n" +
+                            "        5. PROHIBIDO inventar datos. Si falta información, si hay discrepancias o si el usuario aún no confirma los datos, debes invocar reply_message.\n" +
+                            "        6. Devuelve exactamente 1 tool-call por turno.\n" +
                             "    </operational_rules>\n" +
                             "</system_instructions>"
                     }
@@ -313,13 +314,13 @@ public class ChatBot
                 new LlmToolDefinitionDto
                 {
                     Name = "schedule_appointment",
-                    Description = "Agenda una cita médica en Google Calendar",
+                    Description = "Agenda una cita médica en Google Calendar. SOLO usar si el usuario ya confirmó explícitamente los datos en el turno anterior.",
                     ParametersJsonSchema = ScheduleAppointmentArgsJsonSchema
                 },
                 new LlmToolDefinitionDto
                 {
                     Name = "reply_message",
-                    Description = "Responde al usuario por WhatsApp (preguntar datos faltantes o responder preguntas generales)",
+                    Description = "Responde al usuario por WhatsApp (para pedir datos faltantes, mostrar resumen y solicitar confirmación)",
                     ParametersJsonSchema = ReplyMessageArgsJsonSchema
                 }
             ]

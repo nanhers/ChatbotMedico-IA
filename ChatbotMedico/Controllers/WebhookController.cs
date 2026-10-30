@@ -69,6 +69,7 @@ namespace ChatbotMedico.Controllers
             try
             {
                 bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, signatureHeader, ct);
+
                 return ok ? Ok() : Unauthorized();
             }
             catch (Exception ex)

@@ -38,19 +38,24 @@ public sealed class MetaWebhookSignatureValidator : IWebhookSignatureValidator
         string hex = signatureHeader.Substring(SignaturePrefix.Length).Trim();
         if (hex.Length == 0)
         {
+
             _logger.LogWarning("[WEBHOOK SIGNATURE] Signature hex is empty.");
             return false;
         }
 
         if (!TryDecodeHex(hex, out byte[] expectedSignature))
         {
+
             _logger.LogWarning("[WEBHOOK SIGNATURE] Signature hex is not valid hex.");
             return false;
         }
 
         string? appSecret = _configuration[AppSecretConfigKey];
+
+       
         if (string.IsNullOrWhiteSpace(appSecret) || string.Equals(appSecret, "__REEMPLAZAR__", StringComparison.OrdinalIgnoreCase))
         {
+
             _logger.LogError("[WEBHOOK SIGNATURE] AppSecret is missing or not configured (key: {Key}).", AppSecretConfigKey);
             return false;
         }
@@ -62,16 +67,20 @@ public sealed class MetaWebhookSignatureValidator : IWebhookSignatureValidator
             computed = hmac.ComputeHash(rawBody);
         }
 
+
         if (expectedSignature.Length != computed.Length)
         {
+
             _logger.LogWarning("[WEBHOOK SIGNATURE] Signature length mismatch.");
             return false;
         }
 
         bool ok = CryptographicOperations.FixedTimeEquals(expectedSignature, computed);
+
         if (!ok)
         {
             _logger.LogWarning("[WEBHOOK SIGNATURE] Signature mismatch.");
+
         }
 
         return ok;

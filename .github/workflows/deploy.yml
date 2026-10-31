@@ -1,9 +1,8 @@
-name: Deploy Chatbot Medico to Cloud Run
+name: Deploy Chatbot Medico to Cloud Run (Master)
 
 on:
   push:
     branches:
-      - main
       - master
 
 env:
@@ -18,6 +17,7 @@ jobs:
   deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+    environment: Master  # <--- Vinculado a tu entorno de GitHub para producción
 
     permissions:
       contents: 'read'

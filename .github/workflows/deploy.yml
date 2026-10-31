@@ -6,7 +6,7 @@ on:
       - master
 
 env:
-  PROJECT_ID: chatbot-medico-dev
+  PROJECT_ID: chatbot-medico-prd
   REGION: us-central1
   SERVICE_NAME: chatbot-medico
   GAR_LOCATION: us-central1

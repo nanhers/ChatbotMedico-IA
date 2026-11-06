@@ -1,5 +1,6 @@
 ﻿using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
+using Google.Cloud.Tasks.V2;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -45,6 +46,20 @@ builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.IWebhookSignatur
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
 builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
+
+// Task Dispatcher
+var useTaskDispatcherMock = builder.Configuration.GetValue<bool>("Mocks:UseTaskDispatcherMock");
+if (useTaskDispatcherMock)
+{
+    builder.Services.AddHttpClient(nameof(ChatbotMedico.Services.MockTaskDispatcher));
+    builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.ITaskDispatcher, ChatbotMedico.Services.MockTaskDispatcher>();
+}
+else
+{
+    // Google Cloud Tasks
+    builder.Services.AddSingleton(sp => CloudTasksClient.Create());
+    builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.ITaskDispatcher, ChatbotMedico.Services.GoogleCloudTasksTaskDispatcher>();
+}
 
 var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
 if (useCalendarMock)

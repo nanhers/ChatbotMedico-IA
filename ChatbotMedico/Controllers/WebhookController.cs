@@ -1,5 +1,7 @@
 ﻿using System.IO;
-using ChatbotMedico.Application;
+using System.Text.Json;
+using ChatbotMedico.DTOs.Tasks;
+using ChatbotMedico.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatbotMedico.Controllers
@@ -11,13 +13,19 @@ namespace ChatbotMedico.Controllers
         private const string SignatureHeaderName = "X-Hub-Signature-256";
 
         private readonly IConfiguration _configuration;
-        private readonly ChatBot _chatBot;
+        private readonly IWebhookSignatureValidator _signatureValidator;
+        private readonly ITaskDispatcher _taskDispatcher;
         private readonly ILogger<WebhookController> _logger;
 
-        public WebhookController(IConfiguration configuration, ChatBot chatBot, ILogger<WebhookController> logger)
+        public WebhookController(
+            IConfiguration configuration,
+            IWebhookSignatureValidator signatureValidator,
+            ITaskDispatcher taskDispatcher,
+            ILogger<WebhookController> logger)
         {
             _configuration = configuration;
-            _chatBot = chatBot;
+            _signatureValidator = signatureValidator;
+            _taskDispatcher = taskDispatcher;
             _logger = logger;
         }
 
@@ -66,18 +74,40 @@ namespace ChatbotMedico.Controllers
                 return Unauthorized();
             }
 
+            // 1) Validar firma (401 si inválida)
+            if (!_signatureValidator.IsValid(rawBody, signatureHeader))
+            {
+                _logger.LogWarning("[WEBHOOK POST] Firma inválida. Respondiendo 401.");
+                return Unauthorized();
+            }
+
+            // 2) Encolar trabajo asíncrono y responder 200 inmediato.
+            string correlationId = Guid.NewGuid().ToString("N");
+            using IDisposable? scope = _logger.BeginScope(new Dictionary<string, object>
+            {
+                ["correlationId"] = correlationId
+            });
+
             try
             {
-                bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, signatureHeader, ct);
+                var dto = new ProcessWebhookTaskRequestDto
+                {
+                    RawBodyBase64 = Convert.ToBase64String(rawBody),
+                    SignatureHeader = signatureHeader,
+                    CorrelationId = correlationId
+                };
 
-                return ok ? Ok() : Unauthorized();
+                JsonDocument payload = JsonSerializer.SerializeToDocument(dto);
+
+                await _taskDispatcher.DispatchAsync("process-webhook", payload, ct);
             }
             catch (Exception ex)
             {
-                // Meta requiere 200; loggeamos y no re-lanzamos.
-                _logger.LogError(ex, "[WEBHOOK POST] Error delegando el procesamiento del webhook.");
-                return Ok();
+                // Por requerimiento: ACK 200 aunque falle el encolado. Solo log.
+                _logger.LogError(ex, "[WEBHOOK POST] Error encolando task; se responderá 200 para evitar reintentos de Meta.");
             }
+
+            return Ok();
         }
     }
 }

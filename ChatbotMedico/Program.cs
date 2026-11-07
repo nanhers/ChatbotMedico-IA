@@ -43,6 +43,7 @@ builder.Services.AddSingleton(sp =>
 
 // DI
 builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator, ChatbotMedico.Services.MetaWebhookSignatureValidator>();
+builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IWebhookGatewayService, ChatbotMedico.Services.WebhookGatewayService>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
 builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();

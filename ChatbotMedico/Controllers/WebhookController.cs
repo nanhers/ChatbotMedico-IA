@@ -1,6 +1,4 @@
 ﻿using System.IO;
-using System.Text.Json;
-using ChatbotMedico.DTOs.Tasks;
 using ChatbotMedico.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,19 +11,16 @@ namespace ChatbotMedico.Controllers
         private const string SignatureHeaderName = "X-Hub-Signature-256";
 
         private readonly IConfiguration _configuration;
-        private readonly IWebhookSignatureValidator _signatureValidator;
-        private readonly ITaskDispatcher _taskDispatcher;
+        private readonly IWebhookGatewayService _webhookGatewayService;
         private readonly ILogger<WebhookController> _logger;
 
         public WebhookController(
             IConfiguration configuration,
-            IWebhookSignatureValidator signatureValidator,
-            ITaskDispatcher taskDispatcher,
+            IWebhookGatewayService webhookGatewayService,
             ILogger<WebhookController> logger)
         {
             _configuration = configuration;
-            _signatureValidator = signatureValidator;
-            _taskDispatcher = taskDispatcher;
+            _webhookGatewayService = webhookGatewayService;
             _logger = logger;
         }
 
@@ -74,40 +69,11 @@ namespace ChatbotMedico.Controllers
                 return Unauthorized();
             }
 
-            // 1) Validar firma (401 si inválida)
-            if (!_signatureValidator.IsValid(rawBody, signatureHeader))
-            {
-                _logger.LogWarning("[WEBHOOK POST] Firma inválida. Respondiendo 401.");
-                return Unauthorized();
-            }
+            WebhookGatewayResult result = await _webhookGatewayService.HandleAsync(rawBody, signatureHeader, ct);
 
-            // 2) Encolar trabajo asíncrono y responder 200 inmediato.
-            string correlationId = Guid.NewGuid().ToString("N");
-            using IDisposable? scope = _logger.BeginScope(new Dictionary<string, object>
-            {
-                ["correlationId"] = correlationId
-            });
-
-            try
-            {
-                var dto = new ProcessWebhookTaskRequestDto
-                {
-                    RawBodyBase64 = Convert.ToBase64String(rawBody),
-                    SignatureHeader = signatureHeader,
-                    CorrelationId = correlationId
-                };
-
-                JsonDocument payload = JsonSerializer.SerializeToDocument(dto);
-
-                await _taskDispatcher.DispatchAsync("process-webhook", payload, ct);
-            }
-            catch (Exception ex)
-            {
-                // Por requerimiento: ACK 200 aunque falle el encolado. Solo log.
-                _logger.LogError(ex, "[WEBHOOK POST] Error encolando task; se responderá 200 para evitar reintentos de Meta.");
-            }
-
-            return Ok();
+            return result == WebhookGatewayResult.Unauthorized
+                ? Unauthorized()
+                : Ok();
         }
     }
 }

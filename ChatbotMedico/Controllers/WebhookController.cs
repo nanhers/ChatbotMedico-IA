@@ -1,5 +1,5 @@
 ﻿using System.IO;
-using ChatbotMedico.Application;
+using ChatbotMedico.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatbotMedico.Controllers
@@ -11,13 +11,16 @@ namespace ChatbotMedico.Controllers
         private const string SignatureHeaderName = "X-Hub-Signature-256";
 
         private readonly IConfiguration _configuration;
-        private readonly ChatBot _chatBot;
+        private readonly IWebhookGatewayService _webhookGatewayService;
         private readonly ILogger<WebhookController> _logger;
 
-        public WebhookController(IConfiguration configuration, ChatBot chatBot, ILogger<WebhookController> logger)
+        public WebhookController(
+            IConfiguration configuration,
+            IWebhookGatewayService webhookGatewayService,
+            ILogger<WebhookController> logger)
         {
             _configuration = configuration;
-            _chatBot = chatBot;
+            _webhookGatewayService = webhookGatewayService;
             _logger = logger;
         }
 
@@ -66,18 +69,11 @@ namespace ChatbotMedico.Controllers
                 return Unauthorized();
             }
 
-            try
-            {
-                bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, signatureHeader, ct);
+            WebhookGatewayResult result = await _webhookGatewayService.HandleAsync(rawBody, signatureHeader, ct);
 
-                return ok ? Ok() : Unauthorized();
-            }
-            catch (Exception ex)
-            {
-                // Meta requiere 200; loggeamos y no re-lanzamos.
-                _logger.LogError(ex, "[WEBHOOK POST] Error delegando el procesamiento del webhook.");
-                return Ok();
-            }
+            return result == WebhookGatewayResult.Unauthorized
+                ? Unauthorized()
+                : Ok();
         }
     }
 }

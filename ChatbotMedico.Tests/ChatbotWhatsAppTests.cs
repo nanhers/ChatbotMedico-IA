@@ -1,6 +1,8 @@
+using System.Text;
 using System.Text.Json;
 using ChatbotMedico.Application;
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.LLMClient.Interfaces;
+using ChatbotMedico.Client.MessageClient.Interfaces;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.DTOs.LLM;
 using ChatbotMedico.Services.Interfaces;
@@ -12,14 +14,14 @@ namespace ChatbotMedico.Tests;
 
 public sealed class ChatbotWhatsAppTests
 {
-    private static JsonElement ParseJson(string json) => JsonDocument.Parse(json).RootElement;
+    private static byte[] ToRawBody(string json) => Encoding.UTF8.GetBytes(json);
 
-    private static JsonElement BuildWebhookPayload(string from, string body)
+    private static byte[] BuildWebhookPayload(string from, string body)
     {
         string json =
             $"{{\"entry\":[{{\"changes\":[{{\"value\":{{\"messages\":[{{\"from\":{JsonSerializer.Serialize(from)},\"type\":\"text\",\"text\":{{\"body\":{JsonSerializer.Serialize(body)} }} }}]}}}}]}}]}}";
 
-        return ParseJson(json);
+        return ToRawBody(json);
     }
 
     private static LlmResponseDto ToolCallResponse(
@@ -77,11 +79,11 @@ public sealed class ChatbotWhatsAppTests
 
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
-        JsonElement payload = BuildWebhookPayload(
+        byte[] rawBody = BuildWebhookPayload(
             from: "5215550000001",
             body: "Hola quiero una cita para el 16 de octubre del 2026 a las 10:00 am en el calendario fake-calendar@invalid");
 
-        int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
 
         Assert.Equal(1, processed);
 
@@ -122,11 +124,11 @@ public sealed class ChatbotWhatsAppTests
 
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
 
-        JsonElement payload = BuildWebhookPayload(
+        byte[] rawBody = BuildWebhookPayload(
             from: "5215550000002",
             body: "Hola");
 
-        int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
 
         Assert.Equal(1, processed);
 
@@ -146,5 +148,123 @@ public sealed class ChatbotWhatsAppTests
         calendar.VerifyNoOtherCalls();
         llm.VerifyNoOtherCalls();
         messageClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ProcessWhatsAppWebhookAsync_WhenSchedulesEvent_DeletesChatHistoryForUser()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ToolCallResponse());
+
+        calendar.Setup(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
+            .ReturnsAsync(CalendarOk(
+                eventId: "evt_whatsapp_history",
+                startTime: "2026-10-16T10:00:00-06:00",
+                endTime: "2026-10-16T10:45:00-06:00"));
+
+        messageClient
+            .Setup(x => x.SendTextAsync("5215550000003", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        // El "from" trae símbolos; el historial se identifica solo por dígitos.
+        byte[] rawBody = BuildWebhookPayload(from: "+52 1 555 000 0003", body: "Confirmo");
+
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        chatHistoryService.Verify(
+            x => x.DeleteAsync("5215550000003", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessWhatsAppWebhookAsync_WhenDeleteHistoryFails_StillSendsConfirmationMessage()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ToolCallResponse());
+
+        calendar.Setup(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
+            .ReturnsAsync(CalendarOk(
+                eventId: "evt_whatsapp_delete_fails",
+                startTime: "2026-10-16T10:00:00-06:00",
+                endTime: "2026-10-16T10:45:00-06:00"));
+
+        messageClient
+            .Setup(x => x.SendTextAsync("5215550000004", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        chatHistoryService
+            .Setup(x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("firestore down"));
+
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        byte[] rawBody = BuildWebhookPayload(from: "5215550000004", body: "Confirmo");
+
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        messageClient.Verify(
+            x => x.SendTextAsync("5215550000004", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            Times.Once);
+        messageClient.Verify(
+            x => x.SendTextAsync("5215550000004", "Hubo un error al agendar su cita.", It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessWhatsAppWebhookAsync_WhenCalendarFails_SendsRetryMessageAndKeepsHistory()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ToolCallResponse());
+
+        calendar.Setup(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
+            .ThrowsAsync(new Exception("calendar down"));
+
+        messageClient
+            .Setup(x => x.SendTextAsync("5215550000005", "No pudimos agendar su cita en este momento. Intente más tarde.", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        byte[] rawBody = BuildWebhookPayload(from: "5215550000005", body: "Confirmo");
+
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        messageClient.Verify(
+            x => x.SendTextAsync("5215550000005", "No pudimos agendar su cita en este momento. Intente más tarde.", It.IsAny<CancellationToken>()),
+            Times.Once);
+        messageClient.Verify(
+            x => x.SendTextAsync("5215550000005", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Si el calendario falla no se borra el historial: el usuario puede reintentar.
+        chatHistoryService.Verify(
+            x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

@@ -1,6 +1,6 @@
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.CalendarClient.Interfaces;
 
-namespace ChatbotMedico.Client;
+namespace ChatbotMedico.Client.CalendarClient;
 
 public sealed class MockCalendarClient : ICalendarClient
 {

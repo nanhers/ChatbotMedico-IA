@@ -1,7 +1,7 @@
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.LLMClient.Interfaces;
 using ChatbotMedico.DTOs.LLM;
 
-namespace ChatbotMedico.Client;
+namespace ChatbotMedico.Client.LLMClient;
 
 public sealed class MockLlmClient : ILlmClient
 {

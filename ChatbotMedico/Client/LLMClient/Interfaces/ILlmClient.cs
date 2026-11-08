@@ -1,6 +1,6 @@
 using ChatbotMedico.DTOs.LLM;
 
-namespace ChatbotMedico.Client.Interfaces;
+namespace ChatbotMedico.Client.LLMClient.Interfaces;
 
 public interface ILlmClient
 {

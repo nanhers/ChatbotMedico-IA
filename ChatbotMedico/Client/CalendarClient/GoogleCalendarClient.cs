@@ -1,10 +1,10 @@
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.CalendarClient.Interfaces;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
 
-namespace ChatbotMedico.Client;
+namespace ChatbotMedico.Client.CalendarClient;
 
 public sealed class GoogleCalendarClient : ICalendarClient
 {

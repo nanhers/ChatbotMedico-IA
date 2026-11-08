@@ -1,5 +1,14 @@
-﻿using Google.Cloud.Firestore;
+﻿using ChatbotMedico.Client.CalendarClient;
+using ChatbotMedico.Client.CalendarClient.Interfaces;
+using ChatbotMedico.Client.GoogleCloudTask;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
+using ChatbotMedico.Client.LLMClient;
+using ChatbotMedico.Client.LLMClient.Interfaces;
+using ChatbotMedico.Client.MessageClient;
+using ChatbotMedico.Client.MessageClient.Interfaces;
+using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
+using Google.Cloud.Tasks.V2;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -42,40 +51,55 @@ builder.Services.AddSingleton(sp =>
 
 // DI
 builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator, ChatbotMedico.Services.MetaWebhookSignatureValidator>();
+builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IWebhookGatewayService, ChatbotMedico.Services.WebhookGatewayService>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
 builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
 
-var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
-if (useCalendarMock)
+// Task Dispatcher
+var useTaskDispatcherMock = builder.Configuration.GetValue<bool>("Mocks:UseTaskDispatcherMock");
+if (useTaskDispatcherMock)
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.MockCalendarClient>();
+    builder.Services.AddHttpClient(nameof(MockTaskDispatcherClient));
+    builder.Services.AddSingleton<ITaskDispatcherClient, MockTaskDispatcherClient>();
 }
 else
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.GoogleCalendarClient>();
+    // Google Cloud Tasks
+    builder.Services.AddSingleton(sp => CloudTasksClient.Create());
+    builder.Services.AddSingleton<ITaskDispatcherClient, GoogleCloudTasksDispatcherClient>();
+}
+
+var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
+if (useCalendarMock)
+{
+    builder.Services.AddScoped<ICalendarClient, MockCalendarClient>();
+}
+else
+{
+    builder.Services.AddScoped<ICalendarClient, GoogleCalendarClient>();
 }
 
 // WhatsApp messaging
 var useWhatsAppMock = builder.Configuration.GetValue<bool>("Mocks:UseWhatsAppMock");
 if (useWhatsAppMock)
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
+    builder.Services.AddScoped<IMessageClient, MockMessageClient>();
 }
 else
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
+    builder.Services.AddScoped<IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
 }
 
 // AI
 var useLlmMock = builder.Configuration.GetValue<bool>("Mocks:UseLlmMock");
 if (useLlmMock)
 {
-    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.MockLlmClient>();
+    builder.Services.AddSingleton<ILlmClient, MockLlmClient>();
 }
 else
 {
-    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
+    builder.Services.AddSingleton<ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
 }
 
 builder.Services.AddScoped<ChatbotMedico.Application.ChatBot>();

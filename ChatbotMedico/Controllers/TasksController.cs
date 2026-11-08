@@ -46,7 +46,7 @@ public sealed class TasksController : ControllerBase
 
         try
         {
-            // Reutilizamos la ruta existente que valida firma y procesa.
+           
             bool ok = await _chatBot.ProcessWhatsAppWebhookAsync(rawBody, request.SignatureHeader, ct);
 
             if (!ok)

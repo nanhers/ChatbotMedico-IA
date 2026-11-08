@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ChatbotMedico.Application;
 using ChatbotMedico.Client.LLMClient.Interfaces;
@@ -13,12 +14,12 @@ namespace ChatbotMedico.Tests;
 
 public sealed class ChatbotReplyMessageToolTests
 {
-    private static JsonElement ParseJson(string json) => JsonDocument.Parse(json).RootElement;
+    private static byte[] ToRawBody(string json) => Encoding.UTF8.GetBytes(json);
 
-    private static JsonElement BuildWebhookPayload(string from, string body)
+    private static byte[] BuildWebhookPayload(string from, string body)
     {
         string json = $"{{\"entry\":[{{\"changes\":[{{\"value\":{{\"messages\":[{{\"from\":{JsonSerializer.Serialize(from)},\"type\":\"text\",\"text\":{{\"body\":{JsonSerializer.Serialize(body)} }} }}]}}}}]}}]}}";
-        return ParseJson(json);
+        return ToRawBody(json);
     }
 
     private static LlmResponseDto ReplyToolCallResponse(string message)
@@ -161,6 +162,72 @@ public sealed class ChatbotReplyMessageToolTests
     }
 
     [Fact]
+    public async Task Chatbot_ReplyMessageTool_WhenArgumentsJsonIsInvalid_ReturnsFallbackReplyMessage()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResponseDto
+            {
+                Provider = "fake",
+                ToolCalls =
+                [
+                    new LlmToolCallDto { Name = "reply_message", ArgumentsJson = "esto no es json" }
+                ]
+            });
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
+            CancellationToken.None);
+
+        Assert.Equal("reply_message", result.ToolName);
+        Assert.Equal("No pude interpretar tu mensaje para agendar cita.", result.ReplyMessage);
+
+        llm.VerifyAll();
+        calendar.VerifyNoOtherCalls();
+        messageClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Chatbot_ReplyMessageTool_WhenArgumentsJsonIsEmpty_ReturnsFallbackReplyMessage()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResponseDto
+            {
+                Provider = "fake",
+                ToolCalls =
+                [
+                    new LlmToolCallDto { Name = "reply_message", ArgumentsJson = "" }
+                ]
+            });
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
+            new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
+            CancellationToken.None);
+
+        Assert.Equal("reply_message", result.ToolName);
+        Assert.Equal("No pude interpretar tu mensaje para agendar cita.", result.ReplyMessage);
+
+        llm.VerifyAll();
+        calendar.VerifyNoOtherCalls();
+        messageClient.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task Chatbot_ReplyMessageTool_Webhook_WhenReplyMessage_SendsReplyToUser()
     {
         var llm = new Mock<ILlmClient>(MockBehavior.Strict);
@@ -177,8 +244,8 @@ public sealed class ChatbotReplyMessageToolTests
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
-        JsonElement payload = BuildWebhookPayload("user1", "Quiero una cita");
-        int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
+        byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
 
         Assert.Equal(1, processed);
 
@@ -204,10 +271,64 @@ public sealed class ChatbotReplyMessageToolTests
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
         var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
 
-        JsonElement payload = BuildWebhookPayload("user1", "mensaje raro");
-        int processed = await sut.ProcessWhatsAppWebhookAsync(payload, CancellationToken.None);
+        byte[] rawBody = BuildWebhookPayload("user1", "mensaje raro");
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
 
         Assert.Equal(1, processed);
+
+        llm.VerifyAll();
+        messageClient.VerifyAll();
+        calendar.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Chatbot_ReplyMessageTool_Webhook_WhenReplyMessageIsWhitespace_SendsFallbackToUser()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ReplyToolCallResponse("   "));
+
+        messageClient.Setup(x => x.SendTextAsync("user1", "No pude interpretar tu mensaje para agendar cita.", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        llm.VerifyAll();
+        messageClient.VerifyAll();
+        calendar.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Chatbot_ReplyMessageTool_Webhook_WhenLlmThrows_SendsErrorMessageAndDoesNotCountAsProcessed()
+    {
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("boom"));
+
+        messageClient.Setup(x => x.SendTextAsync("user1", "Hubo un error al agendar su cita.", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
+        int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
+
+        Assert.Equal(0, processed);
 
         llm.VerifyAll();
         messageClient.VerifyAll();

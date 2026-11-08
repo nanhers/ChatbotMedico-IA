@@ -45,6 +45,16 @@ public class ChatBot
             return false;
         }
 
+        await ProcessWhatsAppWebhookAsync(rawBody, ct);
+        return true;
+    }
+
+
+    public async Task<int> ProcessWhatsAppWebhookAsync(byte[] rawBody, CancellationToken ct)
+    {
+        int processed = 0;
+        int failed = 0;
+
         JsonElement payload;
         try
         {
@@ -53,17 +63,8 @@ public class ChatBot
         catch (Exception ex)
         {
             _logger.LogError(ex, "[WEBHOOK POST] JSON inválido con firma válida. Se responderá 200 para evitar reintentos.");
-            return true;
+            return 0;
         }
-
-        await ProcessWhatsAppWebhookAsync(payload, ct);
-        return true;
-    }
-
-    public async Task<int> ProcessWhatsAppWebhookAsync(JsonElement payload, CancellationToken ct)
-    {
-        int processed = 0;
-        int failed = 0;
 
         if (payload.ValueKind != JsonValueKind.Object)
         {

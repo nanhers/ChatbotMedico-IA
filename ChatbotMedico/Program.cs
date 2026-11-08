@@ -1,4 +1,12 @@
-﻿using Google.Cloud.Firestore;
+﻿using ChatbotMedico.Client.CalendarClient;
+using ChatbotMedico.Client.CalendarClient.Interfaces;
+using ChatbotMedico.Client.GoogleCloudTask;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
+using ChatbotMedico.Client.LLMClient;
+using ChatbotMedico.Client.LLMClient.Interfaces;
+using ChatbotMedico.Client.MessageClient;
+using ChatbotMedico.Client.MessageClient.Interfaces;
+using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
 using Google.Cloud.Tasks.V2;
 using Grpc.Net.Client;
@@ -52,46 +60,46 @@ builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService
 var useTaskDispatcherMock = builder.Configuration.GetValue<bool>("Mocks:UseTaskDispatcherMock");
 if (useTaskDispatcherMock)
 {
-    builder.Services.AddHttpClient(nameof(ChatbotMedico.Services.MockTaskDispatcher));
-    builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.ITaskDispatcher, ChatbotMedico.Services.MockTaskDispatcher>();
+    builder.Services.AddHttpClient(nameof(MockTaskDispatcherClient));
+    builder.Services.AddSingleton<ITaskDispatcherClient, MockTaskDispatcherClient>();
 }
 else
 {
     // Google Cloud Tasks
     builder.Services.AddSingleton(sp => CloudTasksClient.Create());
-    builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.ITaskDispatcher, ChatbotMedico.Services.GoogleCloudTasksTaskDispatcher>();
+    builder.Services.AddSingleton<ITaskDispatcherClient, GoogleCloudTasksDispatcherClient>();
 }
 
 var useCalendarMock = builder.Configuration.GetValue<bool>("Mocks:UseCalendarMock");
 if (useCalendarMock)
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.MockCalendarClient>();
+    builder.Services.AddScoped<ICalendarClient, MockCalendarClient>();
 }
 else
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.ICalendarClient, ChatbotMedico.Client.GoogleCalendarClient>();
+    builder.Services.AddScoped<ICalendarClient, GoogleCalendarClient>();
 }
 
 // WhatsApp messaging
 var useWhatsAppMock = builder.Configuration.GetValue<bool>("Mocks:UseWhatsAppMock");
 if (useWhatsAppMock)
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.MockMessageClient>();
+    builder.Services.AddScoped<IMessageClient, MockMessageClient>();
 }
 else
 {
-    builder.Services.AddScoped<ChatbotMedico.Client.Interfaces.IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
+    builder.Services.AddScoped<IMessageClient, ChatbotMedico.Client.WhatsApp.WhatsAppMessageClient>();
 }
 
 // AI
 var useLlmMock = builder.Configuration.GetValue<bool>("Mocks:UseLlmMock");
 if (useLlmMock)
 {
-    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.MockLlmClient>();
+    builder.Services.AddSingleton<ILlmClient, MockLlmClient>();
 }
 else
 {
-    builder.Services.AddSingleton<ChatbotMedico.Client.Interfaces.ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
+    builder.Services.AddSingleton<ILlmClient, ChatbotMedico.Client.Gemini.GeminiLlmClient>();
 }
 
 builder.Services.AddScoped<ChatbotMedico.Application.ChatBot>();

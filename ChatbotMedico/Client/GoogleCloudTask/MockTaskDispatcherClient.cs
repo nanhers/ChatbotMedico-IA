@@ -2,11 +2,11 @@ using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using ChatbotMedico.Services.Interfaces;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
 
-namespace ChatbotMedico.Services;
+namespace ChatbotMedico.Client.GoogleCloudTask;
 
-public sealed class MockTaskDispatcher : ITaskDispatcher
+public sealed class MockTaskDispatcherClient : ITaskDispatcherClient
 {
     public sealed record DispatchedTask(
         string TaskName,
@@ -16,14 +16,14 @@ public sealed class MockTaskDispatcher : ITaskDispatcher
 
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<MockTaskDispatcher> _logger;
+    private readonly ILogger<MockTaskDispatcherClient> _logger;
 
     private readonly ConcurrentQueue<DispatchedTask> _dispatched = new();
 
-    public MockTaskDispatcher(
+    public MockTaskDispatcherClient(
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        ILogger<MockTaskDispatcher> logger)
+        ILogger<MockTaskDispatcherClient> logger)
     {
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
@@ -56,7 +56,7 @@ public sealed class MockTaskDispatcher : ITaskDispatcher
             DispatchedAtUtc: DateTimeOffset.UtcNow,
             TargetUrl: targetUrl));
 
-        var client = _httpClientFactory.CreateClient(nameof(MockTaskDispatcher));
+        var client = _httpClientFactory.CreateClient(nameof(MockTaskDispatcherClient));
 
         using var request = new HttpRequestMessage(HttpMethod.Post, targetUrl)
         {

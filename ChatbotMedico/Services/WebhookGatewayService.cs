@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
 using ChatbotMedico.DTOs.Tasks;
 using ChatbotMedico.Services.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -12,12 +13,12 @@ namespace ChatbotMedico.Services;
 public sealed class WebhookGatewayService : IWebhookGatewayService
 {
     private readonly IWebhookSignatureValidator _signatureValidator;
-    private readonly ITaskDispatcher _taskDispatcher;
+    private readonly ITaskDispatcherClient _taskDispatcher;
     private readonly ILogger<WebhookGatewayService> _logger;
 
     public WebhookGatewayService(
         IWebhookSignatureValidator signatureValidator,
-        ITaskDispatcher taskDispatcher,
+        ITaskDispatcherClient taskDispatcher,
         ILogger<WebhookGatewayService> logger)
     {
         _signatureValidator = signatureValidator;

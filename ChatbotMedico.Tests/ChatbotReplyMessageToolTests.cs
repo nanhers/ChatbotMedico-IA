@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ChatbotMedico.Application;
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.LLMClient.Interfaces;
+using ChatbotMedico.Client.MessageClient.Interfaces;
 using ChatbotMedico.DTOs.AI;
 using ChatbotMedico.DTOs.LLM;
 using ChatbotMedico.Services.Interfaces;

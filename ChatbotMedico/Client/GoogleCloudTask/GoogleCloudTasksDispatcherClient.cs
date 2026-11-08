@@ -1,22 +1,23 @@
 using System.Text;
 using System.Text.Json;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
 using Google.Cloud.Tasks.V2;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Task = System.Threading.Tasks.Task;
 
-namespace ChatbotMedico.Services;
+namespace ChatbotMedico.Client.GoogleCloudTask;
 
-public sealed class GoogleCloudTasksTaskDispatcher : ChatbotMedico.Services.Interfaces.ITaskDispatcher
+public sealed class GoogleCloudTasksDispatcherClient : ITaskDispatcherClient
 {
     private readonly CloudTasksClient _client;
     private readonly IConfiguration _configuration;
-    private readonly ILogger<GoogleCloudTasksTaskDispatcher> _logger;
+    private readonly ILogger<GoogleCloudTasksDispatcherClient> _logger;
 
-    public GoogleCloudTasksTaskDispatcher(
+    public GoogleCloudTasksDispatcherClient(
         CloudTasksClient client,
         IConfiguration configuration,
-        ILogger<GoogleCloudTasksTaskDispatcher> logger)
+        ILogger<GoogleCloudTasksDispatcherClient> logger)
     {
         _client = client;
         _configuration = configuration;

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using ChatbotMedico.Client.GoogleCloudTask.Interfaces;
 using ChatbotMedico.Services;
 using ChatbotMedico.Services.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -21,7 +22,7 @@ public sealed class WebhookGatewayServiceTests
             .Setup(v => v.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>()))
             .Returns(false);
 
-        var dispatcher = new Mock<ITaskDispatcher>(MockBehavior.Strict);
+        var dispatcher = new Mock<ITaskDispatcherClient>(MockBehavior.Strict);
         var logger = Mock.Of<ILogger<WebhookGatewayService>>();
 
         var sut = new WebhookGatewayService(signatureValidator.Object, dispatcher.Object, logger);
@@ -40,7 +41,7 @@ public sealed class WebhookGatewayServiceTests
             .Setup(v => v.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>()))
             .Returns(true);
 
-        var dispatcher = new Mock<ITaskDispatcher>(MockBehavior.Strict);
+        var dispatcher = new Mock<ITaskDispatcherClient>(MockBehavior.Strict);
         JsonDocument? capturedPayload = null;
 
         dispatcher
@@ -79,7 +80,7 @@ public sealed class WebhookGatewayServiceTests
             .Setup(v => v.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>()))
             .Returns(true);
 
-        var dispatcher = new Mock<ITaskDispatcher>(MockBehavior.Strict);
+        var dispatcher = new Mock<ITaskDispatcherClient>(MockBehavior.Strict);
         dispatcher
             .Setup(d => d.DispatchAsync("process-webhook", It.IsAny<JsonDocument>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("boom"));

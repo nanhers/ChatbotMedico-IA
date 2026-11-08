@@ -1,6 +1,6 @@
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.MessageClient.Interfaces;
 
-namespace ChatbotMedico.Client;
+namespace ChatbotMedico.Client.MessageClient;
 
 public sealed class MockMessageClient : IMessageClient
 {

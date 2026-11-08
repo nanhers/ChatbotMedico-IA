@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.LLMClient.Interfaces;
 using ChatbotMedico.DTOs.LLM;
 using Google.GenAI;
 using Google.GenAI.Types;

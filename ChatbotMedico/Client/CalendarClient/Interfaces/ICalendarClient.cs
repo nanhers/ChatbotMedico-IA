@@ -1,4 +1,4 @@
-namespace ChatbotMedico.Client.Interfaces;
+namespace ChatbotMedico.Client.CalendarClient.Interfaces;
 
 public sealed record CalendarEventInterval(DateTimeOffset Start, DateTimeOffset End);
 

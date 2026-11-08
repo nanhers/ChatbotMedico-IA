@@ -1,4 +1,4 @@
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.CalendarClient.Interfaces;
 using ChatbotMedico.DTOs.Calendar;
 using ChatbotMedico.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;

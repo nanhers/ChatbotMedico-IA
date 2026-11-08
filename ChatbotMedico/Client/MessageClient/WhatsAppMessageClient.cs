@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using ChatbotMedico.Client.Interfaces;
+using ChatbotMedico.Client.MessageClient.Interfaces;
 using ChatbotMedico.DTOs.WhatsApp;
 
 namespace ChatbotMedico.Client.WhatsApp;

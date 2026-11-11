@@ -141,7 +141,7 @@ public class ChatBot
                             }
                             else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
                             {
-                                const string reply = "Su cita quedó agendada.";
+                                const string reply = "Tu cita quedó agendada.";
 
                                 // Borrar historial ANTES de enviar confirmación final.
                                 string phoneDigits = NormalizePhoneDigits(from);

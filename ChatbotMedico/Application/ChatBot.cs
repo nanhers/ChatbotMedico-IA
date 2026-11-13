@@ -143,7 +143,7 @@ public class ChatBot
                             }
                             else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
                             {
-                                const string reply = "Tu cita quedó agendada.";
+                                string reply = BuildAppointmentConfirmationMessage(action);
 
                                 // Borrar historial ANTES de enviar confirmación final.
                                 string phoneDigits = NormalizePhoneDigits(from);
@@ -596,6 +596,48 @@ public class ChatBot
         return new string(buffer[..idx]);
     }
 
+
+    private static string BuildAppointmentConfirmationMessage(AiToolActionResultDto action)
+    {
+        if (action is null) return "Tu cita quedó agendada.";
+
+        ScheduleAppointmentArgs args;
+        try
+        {
+            args = JsonSerializer.Deserialize<ScheduleAppointmentArgs>(action.ArgumentsJson ?? string.Empty, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new ScheduleAppointmentArgs();
+        }
+        catch
+        {
+            args = new ScheduleAppointmentArgs();
+        }
+
+        string name = string.IsNullOrWhiteSpace(args.Name) ? string.Empty : args.Name.Trim();
+
+        string startIso = !string.IsNullOrWhiteSpace(action.CalendarEventResponse?.StartTime)
+            ? action.CalendarEventResponse!.StartTime
+            : (args.StartTime ?? string.Empty);
+
+        if (!DateTimeOffset.TryParse(startIso, out DateTimeOffset start))
+        {
+            return "Tu cita quedó agendada.";
+        }
+
+        // Convertimos a la TZ establecida por el bot (CachedTimeZone) para evitar inconsistencias entre hosts.
+        DateTimeOffset localStart = TimeZoneInfo.ConvertTime(start, CachedTimeZone);
+
+        string fecha = localStart.ToString("dd/MM/yyyy");
+        string hora = localStart.ToString("HH:mm");
+
+        return
+            $"¡Listo, *{name}*! Tu cita con la *Dra. Geraldine Villanueva* ha quedado agendada con éxito. ✅\n\n" +
+            $"📅 *Fecha:* {fecha}\n" +
+            $"⏰ *Hora:* {hora}\n" +
+            "📍 *Ubicación:* Hospital Ángeles Lomas, Consultorio 670 (Torre de consultorios).\n\n" +
+            "*Nota importante:* Para aprovechar al máximo tu consulta en Endocrinología, recuerda acudir con tus estudios de laboratorio recientes y tus recetas médicas anteriores.";
+    }
 
     private async Task PersistModelReplyAsync(string to, string reply, CancellationToken ct)
     {

@@ -48,7 +48,7 @@ public sealed class CalendarServiceTests
             .ReturnsAsync(Array.Empty<CalendarEventInfo>());
 
         clientMock
-            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone))
+            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita: Juan Perez", It.IsAny<string?>(), start, end, DefaultTimeZone))
             .ReturnsAsync(new CalendarEventInfo(
                 EventId: "evt123",
                 CalendarId: DefaultCalendarId,
@@ -60,7 +60,8 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
             TimeZone = " "
@@ -80,7 +81,8 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = "2026-10-09T10:00:00-06:00",
             EndTime = "2026-10-09T10:00:00-06:00",
             TimeZone = null
@@ -104,7 +106,8 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
             TimeZone = null
@@ -113,7 +116,7 @@ public sealed class CalendarServiceTests
         await Assert.ThrowsAsync<CalendarService.ValidationProblemException>(() => sut.CreateEventAsync(req));
 
         clientMock.Verify(c => c.ListEventsAsync(It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>()), Times.Never);
-        clientMock.Verify(c => c.CreateEventAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>()), Times.Never);
+        clientMock.Verify(c => c.CreateEventAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -132,7 +135,7 @@ public sealed class CalendarServiceTests
             .ReturnsAsync(Array.Empty<CalendarEventInfo>());
 
         clientMock
-            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), DefaultTimeZone))
+            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita: Juan Perez", It.IsAny<string?>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), DefaultTimeZone))
             .ReturnsAsync(new CalendarEventInfo(
                 EventId: "evt123",
                 CalendarId: DefaultCalendarId,
@@ -144,7 +147,8 @@ public sealed class CalendarServiceTests
 
         var createReq = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
             TimeZone = null
@@ -185,7 +189,8 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
             TimeZone = null
@@ -193,7 +198,7 @@ public sealed class CalendarServiceTests
 
         await Assert.ThrowsAsync<CalendarService.ScheduleConflictException>(() => sut.CreateEventAsync(req));
 
-        clientMock.Verify(c => c.CreateEventAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>()), Times.Never);
+        clientMock.Verify(c => c.CreateEventAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -211,7 +216,7 @@ public sealed class CalendarServiceTests
             .ReturnsAsync(Array.Empty<CalendarEventInfo>());
 
         clientMock
-            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone))
+            .Setup(c => c.CreateEventAsync(DefaultCalendarId, "Cita: Juan Perez", It.IsAny<string?>(), start, end, DefaultTimeZone))
             .ReturnsAsync(new CalendarEventInfo(
                 EventId: "evt123",
                 CalendarId: DefaultCalendarId,
@@ -223,7 +228,8 @@ public sealed class CalendarServiceTests
 
         var req = new CreateCalendarEventRequestDto
         {
-            Summary = "Cita",
+            Name = "Juan Perez",
+            Phone = "5550000000",
             StartTime = start.ToString("O"),
             EndTime = end.ToString("O"),
             TimeZone = null
@@ -232,7 +238,7 @@ public sealed class CalendarServiceTests
         var result = await sut.CreateEventAsync(req);
 
         Assert.Equal("evt123", result.EventId);
-        clientMock.Verify(c => c.CreateEventAsync(DefaultCalendarId, "Cita", start, end, DefaultTimeZone), Times.Once);
+        clientMock.Verify(c => c.CreateEventAsync(DefaultCalendarId, "Cita: Juan Perez", It.IsAny<string?>(), start, end, DefaultTimeZone), Times.Once);
     }
 
     [Fact]

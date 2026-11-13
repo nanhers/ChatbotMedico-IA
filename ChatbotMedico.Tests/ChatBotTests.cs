@@ -33,7 +33,7 @@ public sealed class ChatBotTests
         return ToRawBody(json);
     }
 
-    private static LlmResponseDto ToolCallResponse(string summary = "Juan Perez", string startTime = "2026-10-16T10:00:00-06:00")
+    private static LlmResponseDto ToolCallResponse(string name = "Juan Perez", string startTime = "2026-10-16T10:00:00-06:00")
         => new LlmResponseDto
         {
             Provider = "fake",
@@ -42,7 +42,7 @@ public sealed class ChatBotTests
                 new LlmToolCallDto
                 {
                     Name = "schedule_appointment",
-                    ArgumentsJson = $"{{\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
+                    ArgumentsJson = $"{{\"name\":\"{name}\",\"startTime\":\"{startTime}\"}}"
                 }
             ]
         };
@@ -129,13 +129,14 @@ public sealed class ChatBotTests
                     new LlmToolCallDto
                     {
                         Name = "schedule_appointment",
-                        ArgumentsJson = "{\"summary\":\"Juan Perez\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}"
+                        ArgumentsJson = "{\"name\":\"Juan Perez\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}"
                     }
                 ]
             });
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.Summary == "Juan Perez" &&
+                r.Name == "Juan Perez" &&
+                r.Phone == "1" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-16T10:00:00") &&
                 r.EndTime.StartsWith("2026-10-16T10:45:00"))))
@@ -178,13 +179,13 @@ public sealed class ChatBotTests
                     new LlmToolCallDto
                     {
                         Name = "schedule_appointment",
-                        ArgumentsJson = "{\"startTime\":\"2026-10-25T10:00:00-06:00\",\"summary\":\"Juan Perez\"}"
+                        ArgumentsJson = "{\"startTime\":\"2026-10-25T10:00:00-06:00\",\"name\":\"Juan Perez\"}"
                     }
                 ]
             });
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.Summary == "Juan Perez" &&
+                r.Name == "Juan Perez" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-25T10:00:00") &&
                 r.EndTime.StartsWith("2026-10-25T10:45:00"))))
@@ -360,7 +361,8 @@ public sealed class ChatBotTests
             .ReturnsAsync(ToolCallResponse());
 
         calendar.Setup(x => x.CreateEventAsync(It.Is<CreateCalendarEventRequestDto>(r =>
-                r.Summary == "Juan Perez" &&
+                r.Name == "Juan Perez" &&
+                r.Phone == "" &&
                 string.IsNullOrWhiteSpace(r.TimeZone) &&
                 r.StartTime.StartsWith("2026-10-16T10:00:00") &&
                 r.EndTime.StartsWith("2026-10-16T10:45:00"))))

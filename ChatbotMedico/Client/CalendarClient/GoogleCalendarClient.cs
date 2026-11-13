@@ -94,6 +94,7 @@ public sealed class GoogleCalendarClient : ICalendarClient
     public async Task<CalendarEventInfo> CreateEventAsync(
         string calendarId,
         string summary,
+        string? description,
         DateTimeOffset start,
         DateTimeOffset end,
         string timeZone)
@@ -103,6 +104,7 @@ public sealed class GoogleCalendarClient : ICalendarClient
         Event ev = new Event
         {
             Summary = summary,
+            Description = description,
             Start = new EventDateTime { DateTimeDateTimeOffset = start, TimeZone = timeZone },
             End = new EventDateTime { DateTimeDateTimeOffset = end, TimeZone = timeZone }
         };

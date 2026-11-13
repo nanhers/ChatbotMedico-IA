@@ -304,7 +304,7 @@ public class ChatBot
                             "    <operational_rules>\n" +
                             "        1. REGLA CRÍTICA DE CONFIRMACIÓN: Aunque dispongas de todos los datos (nombre y fecha/hora), **está estrictamente prohibido llamar a schedule_appointment de inmediato**. Primero debes usar obligatoriamente `reply_message` para mostrarle al usuario un resumen de los datos recolectados y preguntarle explícitamente si confirma que son correctos.\n" +
                             "        2. SOLO puedes invocar `schedule_appointment` si en el historial de la conversación **ya existe un mensaje previo tuyo pidiendo confirmación** y un mensaje de respuesta del usuario donde confirme expresamente que todo es correcto (ej. 'sí', 'correcto', 'confirmo', 'adelante'). Si el usuario no ha confirmado explícitamente en el turno anterior, debes seguir usando `reply_message`.\n" +
-                            "        3. Extracción de datos requeridos para schedule_appointment: (a) summary (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
+                            "        3. Extracción de datos requeridos para schedule_appointment: (a) name (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
                             "        4. Orientación temporal y validación de fechas:\n" +
                             "            - Momento actual del sistema: " + currentDate + ".\n" +
                             "            - Guíate con esta fecha y hora para situarte en el tiempo. Si el usuario omite el año al dar una fecha numérica, interprétala utilizando el año actual (" + currentYear + "); sin embargo, si esa fecha ya ocurrió en el transcurso del año actual, asume inteligentemente que corresponde al próximo año (" + (currentYear + 1) + ").\n" +
@@ -432,7 +432,7 @@ public class ChatBot
             throw new FormatException("No se pudieron leer los argumentos de la herramienta schedule_appointment.", ex);
         }
 
-        if (string.IsNullOrWhiteSpace(args.Summary))
+        if (string.IsNullOrWhiteSpace(args.Name))
         {
             return new AiToolActionResultDto
             {
@@ -454,7 +454,8 @@ public class ChatBot
 
         CreateCalendarEventRequestDto createReq = new CreateCalendarEventRequestDto
         {
-            Summary = args.Summary,
+            Name = args.Name,
+            Phone = phoneDigits,
             StartTime = start.ToString("O"),
             EndTime = start.Add(DefaultDuration).ToString("O")
         };
@@ -471,7 +472,7 @@ public class ChatBot
             {
                 ToolName = "reply_message",
                 ArgumentsJson = string.Empty,
-                ReplyMessage = "No pudimos agendar su cita en este momento. Intente más tarde."
+                ReplyMessage = "No pudimos agendar tu cita en este momento. Inténtalo más tarde."
             };
         }
 
@@ -494,15 +495,15 @@ public class ChatBot
     private const string ScheduleAppointmentArgsJsonSchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"properties\": {\n" +
-        "    \"summary\": { \"type\": \"string\", \"description\": \"Nombre del paciente para el summary\" },\n" +
+        "    \"name\": { \"type\": \"string\", \"description\": \"Nombre del paciente\" },\n" +
         "    \"startTime\": { \"type\": \"string\", \"description\": \"Fecha/hora inicio ISO-8601\" }\n" +
         "  },\n" +
-        "  \"required\": [\"summary\", \"startTime\" ]\n" +
+        "  \"required\": [\"name\", \"startTime\" ]\n" +
         "}";
 
     private sealed class ScheduleAppointmentArgs
     {
-        public string Summary { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
         public string StartTime { get; set; } = string.Empty;
     }
 

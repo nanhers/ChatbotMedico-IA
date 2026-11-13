@@ -52,6 +52,7 @@ public sealed class MockCalendarClient : ICalendarClient
     public Task<CalendarEventInfo> CreateEventAsync(
         string calendarId,
         string summary,
+        string? description,
         DateTimeOffset start,
         DateTimeOffset end,
         string timeZone)

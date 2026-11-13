@@ -26,7 +26,7 @@ public sealed class CalendarService : ICalendarService
 
     public async Task<CreateCalendarEventResponseDto> CreateEventAsync(CreateCalendarEventRequestDto request)
     {
-        Dictionary<string, string[]> errors = ValidateCreateRequest(request, out string summary, out DateTimeOffset start, out DateTimeOffset end);
+        Dictionary<string, string[]> errors = ValidateCreateRequest(request, out string summary, out string description, out DateTimeOffset start, out DateTimeOffset end);
         if (errors.Count > 0)
         {
             throw new ValidationProblemException(errors);
@@ -91,7 +91,7 @@ public sealed class CalendarService : ICalendarService
             throw new ScheduleConflictException("Conflicto de agenda: el intervalo solicitado se traslapa con un evento existente.");
         }
 
-        CalendarEventInfo created = await _calendarClient.CreateEventAsync(_calendarId, summary, start, end, calendarTimeZone);
+        CalendarEventInfo created = await _calendarClient.CreateEventAsync(_calendarId, summary, description, start, end, calendarTimeZone);
 
         _logger.LogInformation(
             "Calendar: evento creado calendarId={CalendarId} eventId={EventId} start={Start} end={End} timeZone={TimeZone} htmlLink={HtmlLink}",
@@ -167,20 +167,27 @@ public sealed class CalendarService : ICalendarService
     private static Dictionary<string, string[]> ValidateCreateRequest(
         CreateCalendarEventRequestDto request,
         out string summary,
+        out string description,
         out DateTimeOffset start,
         out DateTimeOffset end)
     {
         Dictionary<string, string[]> errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        summary = request.Summary?.Trim() ?? string.Empty;
+        string name = request.Name?.Trim() ?? string.Empty;
+        string phone = request.Phone?.Trim() ?? string.Empty;
+
+        summary = string.Empty;
+        description = string.Empty;
 
         // Inicializar out params para evitar CS0177/CS0269
         start = default;
         end = default;
 
-        if (string.IsNullOrWhiteSpace(summary))
-            errors["summary"] = ["summary es obligatorio."];
+        if (string.IsNullOrWhiteSpace(name))
+            errors["name"] = ["name es obligatorio."];
 
+        if (string.IsNullOrWhiteSpace(phone))
+            errors["phone"] = ["phone es obligatorio."];
 
         if (string.IsNullOrWhiteSpace(request.StartTime) || !DateTimeOffset.TryParse(request.StartTime, out start))
             errors["start_time"] = ["start_time es obligatorio y debe ser una fecha válida (ISO-8601)."];
@@ -192,6 +199,17 @@ public sealed class CalendarService : ICalendarService
         {
             if (start >= end)
                 errors["date_range"] = ["start_time debe ser menor que end_time."];
+        }
+
+        if (errors.Count == 0)
+        {
+            summary = $"Cita: {name}";
+
+            string nl = Environment.NewLine;
+            description = "[DATOS DEL PACIENTE]" + nl +
+                          $"- Nombre: {name}" + nl +
+                          $"- Teléfono: {phone}" + nl +
+                          "- Origen: WhatsApp Bot";
         }
 
         return errors;

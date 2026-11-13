@@ -25,7 +25,7 @@ public sealed class ChatbotWhatsAppTests
     }
 
     private static LlmResponseDto ToolCallResponse(
-        string summary = "Juan Perez",
+        string name = "Juan Perez",
         string startTime = "2026-10-16T10:00:00-06:00")
         => new LlmResponseDto
         {
@@ -35,7 +35,7 @@ public sealed class ChatbotWhatsAppTests
                 new LlmToolCallDto
                 {
                     Name = "schedule_appointment",
-                    ArgumentsJson = $"{{\"summary\":\"{summary}\",\"startTime\":\"{startTime}\"}}"
+                    ArgumentsJson = $"{{\"name\":\"{name}\",\"startTime\":\"{startTime}\"}}"
                 }
             ]
         };
@@ -70,7 +70,7 @@ public sealed class ChatbotWhatsAppTests
                 endTime: "2026-10-16T10:45:00-06:00"));
 
         messageClient
-            .Setup(x => x.SendTextAsync("5215550000001", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Setup(x => x.SendTextAsync("5215550000001", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
@@ -88,7 +88,7 @@ public sealed class ChatbotWhatsAppTests
         Assert.Equal(1, processed);
 
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000001", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000001", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
             Times.Once);
 
         messageClient.Verify(
@@ -204,7 +204,7 @@ public sealed class ChatbotWhatsAppTests
                 endTime: "2026-10-16T10:45:00-06:00"));
 
         messageClient
-            .Setup(x => x.SendTextAsync("5215550000004", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Setup(x => x.SendTextAsync("5215550000004", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
@@ -221,7 +221,7 @@ public sealed class ChatbotWhatsAppTests
         Assert.Equal(1, processed);
 
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000004", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000004", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
             Times.Once);
         messageClient.Verify(
             x => x.SendTextAsync("5215550000004", "Hubo un error al agendar su cita.", It.IsAny<CancellationToken>()),

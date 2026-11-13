@@ -13,6 +13,8 @@ namespace ChatbotMedico.Application;
 public class ChatBot
 {
     private static readonly TimeSpan DefaultDuration = TimeSpan.FromMinutes(45);
+    private static readonly TimeZoneInfo CachedTimeZone = InitializeTimeZone();
+
 
     private readonly ILlmClient _llm;
     private readonly ICalendarService _calendarService;
@@ -141,7 +143,7 @@ public class ChatBot
                             }
                             else if (string.Equals(action.ToolName, "schedule_appointment", StringComparison.OrdinalIgnoreCase))
                             {
-                                const string reply = "Tu cita quedó agendada.";
+                                string reply = BuildAppointmentConfirmationMessage(action);
 
                                 // Borrar historial ANTES de enviar confirmación final.
                                 string phoneDigits = NormalizePhoneDigits(from);
@@ -178,7 +180,7 @@ public class ChatBot
                         {
                             try
                             {
-                                const string reply = "Hubo un error al agendar su cita.";
+                                const string reply = "Hubo un error al agendar tu cita.";
                                 await PersistModelReplyAsync(from, reply, ct);
                                 await _messageClient.SendTextAsync(from, reply, ct);
                             }
@@ -278,10 +280,38 @@ public class ChatBot
         return await ExecuteToolCall(toolCall, phoneDigits, ct);
     }
 
-    private static LlmRequestDto BuildLlmRequest( List<LlmMessageDto> historyMessages)
+
+    private static TimeZoneInfo InitializeTimeZone()
     {
-        string currentDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        int currentYear = DateTime.Now.Year;
+        string timeZoneId = "America/Mexico_City";
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out TimeZoneInfo tz))
+        {
+            return tz;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+    private static LlmRequestDto BuildLlmRequest(List<LlmMessageDto> historyMessages)
+    {
+        // Usamos la zona horaria ya cacheada en memoria (¡Instantáneo!)
+        TimeZoneInfo tzInfo = CachedTimeZone;
+
+        // Convertir la hora actual UTC a la zona horaria objetivo
+        DateTime currentTimeZoneTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tzInfo);
+
+        // Formatear el offset (ej. -06:00 o -05:00)
+        TimeSpan offset = tzInfo.GetUtcOffset(currentTimeZoneTime);
+        string utcOffsetString = $"{(offset.Ticks >= 0 ? "+" : "-")}{offset.ToString(@"hh\:mm")}";
+
+        string currentDate = $"{currentTimeZoneTime:yyyy-MM-dd HH:mm:ss} {utcOffsetString}";
+        int currentYear = currentTimeZoneTime.Year;
 
         List<LlmMessageDto> messages = new List<LlmMessageDto>
         {
@@ -304,7 +334,7 @@ public class ChatBot
                             "    <operational_rules>\n" +
                             "        1. REGLA CRÍTICA DE CONFIRMACIÓN: Aunque dispongas de todos los datos (nombre y fecha/hora), **está estrictamente prohibido llamar a schedule_appointment de inmediato**. Primero debes usar obligatoriamente `reply_message` para mostrarle al usuario un resumen de los datos recolectados y preguntarle explícitamente si confirma que son correctos.\n" +
                             "        2. SOLO puedes invocar `schedule_appointment` si en el historial de la conversación **ya existe un mensaje previo tuyo pidiendo confirmación** y un mensaje de respuesta del usuario donde confirme expresamente que todo es correcto (ej. 'sí', 'correcto', 'confirmo', 'adelante'). Si el usuario no ha confirmado explícitamente en el turno anterior, debes seguir usando `reply_message`.\n" +
-                            "        3. Extracción de datos requeridos para schedule_appointment: (a) summary (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
+                            "        3. Extracción de datos requeridos para schedule_appointment: (a) name (nombre del paciente), (b) startTime en formato ISO-8601. Zona horaria base: America/Mexico_City.\n" +
                             "        4. Orientación temporal y validación de fechas:\n" +
                             "            - Momento actual del sistema: " + currentDate + ".\n" +
                             "            - Guíate con esta fecha y hora para situarte en el tiempo. Si el usuario omite el año al dar una fecha numérica, interprétala utilizando el año actual (" + currentYear + "); sin embargo, si esa fecha ya ocurrió en el transcurso del año actual, asume inteligentemente que corresponde al próximo año (" + (currentYear + 1) + ").\n" +
@@ -344,7 +374,7 @@ public class ChatBot
         };
     }
 
-    
+
     private async Task<AiToolActionResultDto> ExecuteToolCall(LlmToolCallDto toolCall, string phoneDigits, CancellationToken ct)
     {
         string toolName = toolCall.Name?.Trim() ?? string.Empty;
@@ -381,7 +411,7 @@ public class ChatBot
 
     private AiToolActionResultDto ExecuteReplyMessageToolCall(string toolName, string argsJson)
     {
-        
+
         ReplyMessageArgsDto args;
         try
         {
@@ -414,7 +444,7 @@ public class ChatBot
 
     private async Task<AiToolActionResultDto> ExecuteScheduleAppointmentToolCallAsync(string toolName, string argsJson, string phoneDigits, CancellationToken ct)
     {
-        
+
         ScheduleAppointmentArgs args;
         try
         {
@@ -432,7 +462,7 @@ public class ChatBot
             throw new FormatException("No se pudieron leer los argumentos de la herramienta schedule_appointment.", ex);
         }
 
-        if (string.IsNullOrWhiteSpace(args.Summary))
+        if (string.IsNullOrWhiteSpace(args.Name))
         {
             return new AiToolActionResultDto
             {
@@ -454,7 +484,8 @@ public class ChatBot
 
         CreateCalendarEventRequestDto createReq = new CreateCalendarEventRequestDto
         {
-            Summary = args.Summary,
+            Name = args.Name,
+            Phone = phoneDigits,
             StartTime = start.ToString("O"),
             EndTime = start.Add(DefaultDuration).ToString("O")
         };
@@ -471,7 +502,7 @@ public class ChatBot
             {
                 ToolName = "reply_message",
                 ArgumentsJson = string.Empty,
-                ReplyMessage = "No pudimos agendar su cita en este momento. Intente más tarde."
+                ReplyMessage = "No pudimos agendar tu cita en este momento. Inténtalo más tarde."
             };
         }
 
@@ -494,15 +525,15 @@ public class ChatBot
     private const string ScheduleAppointmentArgsJsonSchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"properties\": {\n" +
-        "    \"summary\": { \"type\": \"string\", \"description\": \"Nombre del paciente para el summary\" },\n" +
+        "    \"name\": { \"type\": \"string\", \"description\": \"Nombre del paciente\" },\n" +
         "    \"startTime\": { \"type\": \"string\", \"description\": \"Fecha/hora inicio ISO-8601\" }\n" +
         "  },\n" +
-        "  \"required\": [\"summary\", \"startTime\" ]\n" +
+        "  \"required\": [\"name\", \"startTime\" ]\n" +
         "}";
 
     private sealed class ScheduleAppointmentArgs
     {
-        public string Summary { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
         public string StartTime { get; set; } = string.Empty;
     }
 
@@ -565,6 +596,48 @@ public class ChatBot
         return new string(buffer[..idx]);
     }
 
+
+    private static string BuildAppointmentConfirmationMessage(AiToolActionResultDto action)
+    {
+        if (action is null) return "Tu cita quedó agendada.";
+
+        ScheduleAppointmentArgs args;
+        try
+        {
+            args = JsonSerializer.Deserialize<ScheduleAppointmentArgs>(action.ArgumentsJson ?? string.Empty, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new ScheduleAppointmentArgs();
+        }
+        catch
+        {
+            args = new ScheduleAppointmentArgs();
+        }
+
+        string name = string.IsNullOrWhiteSpace(args.Name) ? string.Empty : args.Name.Trim();
+
+        string startIso = !string.IsNullOrWhiteSpace(action.CalendarEventResponse?.StartTime)
+            ? action.CalendarEventResponse!.StartTime
+            : (args.StartTime ?? string.Empty);
+
+        if (!DateTimeOffset.TryParse(startIso, out DateTimeOffset start))
+        {
+            return "Tu cita quedó agendada.";
+        }
+
+        // Convertimos a la TZ establecida por el bot (CachedTimeZone) para evitar inconsistencias entre hosts.
+        DateTimeOffset localStart = TimeZoneInfo.ConvertTime(start, CachedTimeZone);
+
+        string fecha = localStart.ToString("dd/MM/yyyy");
+        string hora = localStart.ToString("HH:mm");
+
+        return
+            $"¡Listo, *{name}*! Tu cita con la *Dra. Geraldine Villanueva* ha quedado agendada con éxito. ✅\n\n" +
+            $"📅 *Fecha:* {fecha}\n" +
+            $"⏰ *Hora:* {hora}\n" +
+            "📍 *Ubicación:* Hospital Ángeles Lomas, Consultorio 670 (Torre de consultorios).\n\n" +
+            "*Nota importante:* Para aprovechar al máximo tu consulta en Endocrinología, recuerda acudir con tus estudios de laboratorio recientes y tus recetas médicas anteriores.";
+    }
 
     private async Task PersistModelReplyAsync(string to, string reply, CancellationToken ct)
     {

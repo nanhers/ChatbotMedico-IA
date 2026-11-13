@@ -13,6 +13,8 @@ namespace ChatbotMedico.Application;
 public class ChatBot
 {
     private static readonly TimeSpan DefaultDuration = TimeSpan.FromMinutes(45);
+    private static readonly TimeZoneInfo CachedTimeZone = InitializeTimeZone();
+
 
     private readonly ILlmClient _llm;
     private readonly ICalendarService _calendarService;
@@ -178,7 +180,7 @@ public class ChatBot
                         {
                             try
                             {
-                                const string reply = "Hubo un error al agendar su cita.";
+                                const string reply = "Hubo un error al agendar tu cita.";
                                 await PersistModelReplyAsync(from, reply, ct);
                                 await _messageClient.SendTextAsync(from, reply, ct);
                             }
@@ -278,10 +280,38 @@ public class ChatBot
         return await ExecuteToolCall(toolCall, phoneDigits, ct);
     }
 
-    private static LlmRequestDto BuildLlmRequest( List<LlmMessageDto> historyMessages)
+
+    private static TimeZoneInfo InitializeTimeZone()
     {
-        string currentDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        int currentYear = DateTime.Now.Year;
+        string timeZoneId = "America/Mexico_City";
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out TimeZoneInfo tz))
+        {
+            return tz;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+    private static LlmRequestDto BuildLlmRequest(List<LlmMessageDto> historyMessages)
+    {
+        // Usamos la zona horaria ya cacheada en memoria (¡Instantáneo!)
+        TimeZoneInfo tzInfo = CachedTimeZone;
+
+        // Convertir la hora actual UTC a la zona horaria objetivo
+        DateTime currentTimeZoneTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tzInfo);
+
+        // Formatear el offset (ej. -06:00 o -05:00)
+        TimeSpan offset = tzInfo.GetUtcOffset(currentTimeZoneTime);
+        string utcOffsetString = $"{(offset.Ticks >= 0 ? "+" : "-")}{offset.ToString(@"hh\:mm")}";
+
+        string currentDate = $"{currentTimeZoneTime:yyyy-MM-dd HH:mm:ss} {utcOffsetString}";
+        int currentYear = currentTimeZoneTime.Year;
 
         List<LlmMessageDto> messages = new List<LlmMessageDto>
         {
@@ -344,7 +374,7 @@ public class ChatBot
         };
     }
 
-    
+
     private async Task<AiToolActionResultDto> ExecuteToolCall(LlmToolCallDto toolCall, string phoneDigits, CancellationToken ct)
     {
         string toolName = toolCall.Name?.Trim() ?? string.Empty;
@@ -381,7 +411,7 @@ public class ChatBot
 
     private AiToolActionResultDto ExecuteReplyMessageToolCall(string toolName, string argsJson)
     {
-        
+
         ReplyMessageArgsDto args;
         try
         {
@@ -414,7 +444,7 @@ public class ChatBot
 
     private async Task<AiToolActionResultDto> ExecuteScheduleAppointmentToolCallAsync(string toolName, string argsJson, string phoneDigits, CancellationToken ct)
     {
-        
+
         ScheduleAppointmentArgs args;
         try
         {

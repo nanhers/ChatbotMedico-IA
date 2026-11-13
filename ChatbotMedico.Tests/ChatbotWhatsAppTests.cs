@@ -69,8 +69,15 @@ public sealed class ChatbotWhatsAppTests
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
+        string expected =
+            "¡Listo, *Juan Perez*! Tu cita con la *Dra. Geraldine Villanueva* ha quedado agendada con éxito. ✅\n\n" +
+            "📅 *Fecha:* 16/10/2026\n" +
+            "⏰ *Hora:* 10:00\n" +
+            "📍 *Ubicación:* Hospital Ángeles Lomas, Consultorio 670 (Torre de consultorios).\n\n" +
+            "*Nota importante:* Para aprovechar al máximo tu consulta en Endocrinología, recuerda acudir con tus estudios de laboratorio recientes y tus recetas médicas anteriores. ¿Dudas?";
+
         messageClient
-            .Setup(x => x.SendTextAsync("5215550000001", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Setup(x => x.SendTextAsync("5215550000001", expected, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
@@ -88,7 +95,7 @@ public sealed class ChatbotWhatsAppTests
         Assert.Equal(1, processed);
 
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000001", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000001", expected, It.IsAny<CancellationToken>()),
             Times.Once);
 
         messageClient.Verify(
@@ -137,7 +144,7 @@ public sealed class ChatbotWhatsAppTests
             Times.Once);
 
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000002", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000002", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
             Times.Never);
 
         messageClient.Verify(
@@ -167,8 +174,15 @@ public sealed class ChatbotWhatsAppTests
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
+        string expected =
+            "¡Listo, *Juan Perez*! Tu cita con la *Dra. Geraldine Villanueva* ha quedado agendada con éxito. ✅\n\n" +
+            "📅 *Fecha:* 16/10/2026\n" +
+            "⏰ *Hora:* 10:00\n" +
+            "📍 *Ubicación:* Hospital Ángeles Lomas, Consultorio 670 (Torre de consultorios).\n\n" +
+            "*Nota importante:* Para aprovechar al máximo tu consulta en Endocrinología, recuerda acudir con tus estudios de laboratorio recientes y tus recetas médicas anteriores. ¿Dudas?";
+
         messageClient
-            .Setup(x => x.SendTextAsync("5215550000003", "Su cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Setup(x => x.SendTextAsync("5215550000003", expected, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
@@ -203,8 +217,15 @@ public sealed class ChatbotWhatsAppTests
                 startTime: "2026-10-16T10:00:00-06:00",
                 endTime: "2026-10-16T10:45:00-06:00"));
 
+        string expected =
+            "¡Listo, *Juan Perez*! Tu cita con la *Dra. Geraldine Villanueva* ha quedado agendada con éxito. ✅\n\n" +
+            "📅 *Fecha:* 16/10/2026\n" +
+            "⏰ *Hora:* 10:00\n" +
+            "📍 *Ubicación:* Hospital Ángeles Lomas, Consultorio 670 (Torre de consultorios).\n\n" +
+            "*Nota importante:* Para aprovechar al máximo tu consulta en Endocrinología, recuerda acudir con tus estudios de laboratorio recientes y tus recetas médicas anteriores. ¿Dudas?";
+
         messageClient
-            .Setup(x => x.SendTextAsync("5215550000004", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()))
+            .Setup(x => x.SendTextAsync("5215550000004", expected, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
@@ -221,7 +242,7 @@ public sealed class ChatbotWhatsAppTests
         Assert.Equal(1, processed);
 
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000004", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000004", expected, It.IsAny<CancellationToken>()),
             Times.Once);
         messageClient.Verify(
             x => x.SendTextAsync("5215550000004", "Hubo un error al agendar su cita.", It.IsAny<CancellationToken>()),
@@ -259,7 +280,7 @@ public sealed class ChatbotWhatsAppTests
             x => x.SendTextAsync("5215550000005", "No pudimos agendar su cita en este momento. Intente más tarde.", It.IsAny<CancellationToken>()),
             Times.Once);
         messageClient.Verify(
-            x => x.SendTextAsync("5215550000005", "Su cita quedó agendada.", It.IsAny<CancellationToken>()),
+            x => x.SendTextAsync("5215550000005", "Tu cita quedó agendada.", It.IsAny<CancellationToken>()),
             Times.Never);
 
         // Si el calendario falla no se borra el historial: el usuario puede reintentar.

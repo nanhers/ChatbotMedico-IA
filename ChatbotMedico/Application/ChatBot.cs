@@ -495,6 +495,16 @@ public class ChatBot
         {
             created = await _calendarService.CreateEventAsync(createReq);
         }
+        catch (ChatbotMedico.Services.CalendarService.ScheduleConflictException ex)
+        {
+            _logger.LogInformation(ex, "Conflicto de agenda al crear evento desde schedule_appointment.");
+            return new AiToolActionResultDto
+            {
+                ToolName = "reply_message",
+                ArgumentsJson = string.Empty,
+                ReplyMessage = "Lo siento, ese horario ya está ocupado en nuestra agenda. 📅 Para poder ayudarte, ¿qué otra hora o día te quedaría bien? Dime una nueva opción e intentamos agendarla de inmediato."
+            };
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al crear evento de calendario desde schedule_appointment.");

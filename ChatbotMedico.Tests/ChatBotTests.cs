@@ -164,6 +164,47 @@ public sealed class ChatBotTests
     }
 
     [Fact]
+    public async Task InterpretAndScheduleAsync_WhenCalendarThrowsScheduleConflictException_ReturnsSpecificReplyMessage()
+    {
+        const string expected = "Lo siento, ese horario ya está ocupado en nuestra agenda. 📅 Para poder ayudarte, ¿qué otra hora o día te quedaría bien? Dime una nueva opción y reviso de inmediato si tenemos el espacio libre para ti.";
+
+        var llm = new Mock<ILlmClient>(MockBehavior.Strict);
+        var calendar = new Mock<ICalendarService>(MockBehavior.Strict);
+        var logger = Mock.Of<ILogger<ChatBot>>();
+
+        llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResponseDto
+            {
+                Provider = "fake",
+                ToolCalls =
+                [
+                    new LlmToolCallDto
+                    {
+                        Name = "schedule_appointment",
+                        ArgumentsJson = "{\"name\":\"Juan Perez\",\"startTime\":\"2026-10-16T10:00:00-06:00\"}"
+                    }
+                ]
+            });
+
+        calendar.Setup(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()))
+            .ThrowsAsync(new ChatbotMedico.Services.CalendarService.ScheduleConflictException("overlap"));
+
+        var messageClient = new Mock<IMessageClient>(MockBehavior.Strict);
+        var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+
+        AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(new AiInterpretRequestDto
+        {
+            PhoneNumber = "user1",
+            Text = "Hola soy Juan Perez quiero agendar una cita para el 16 de octubre del 2026 a las 10:00 am."
+        }, CancellationToken.None);
+
+        Assert.Equal("reply_message", result.ToolName);
+        Assert.Equal(expected, result.ReplyMessage);
+        calendar.Verify(x => x.CreateEventAsync(It.IsAny<CreateCalendarEventRequestDto>()), Times.Once);
+    }
+
+    [Fact]
     public async Task InterpretAndScheduleAsync_WhenGeminiFlashToolCallPresent_SchedulesEvent()
     {
         var llm = new Mock<ILlmClient>(MockBehavior.Strict);

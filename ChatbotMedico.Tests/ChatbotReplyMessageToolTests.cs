@@ -319,7 +319,7 @@ public sealed class ChatbotReplyMessageToolTests
         llm.Setup(x => x.GetResponseAsync(It.IsAny<LlmRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("boom"));
 
-        messageClient.Setup(x => x.SendTextAsync("user1", "Hubo un error al agendar su cita.", It.IsAny<CancellationToken>()))
+        messageClient.Setup(x => x.SendTextAsync("user1", "Hubo un error al agendar tu cita.", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);

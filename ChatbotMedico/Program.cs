@@ -6,6 +6,8 @@ using ChatbotMedico.Client.LLMClient;
 using ChatbotMedico.Client.LLMClient.Interfaces;
 using ChatbotMedico.Client.MessageClient;
 using ChatbotMedico.Client.MessageClient.Interfaces;
+using ChatbotMedico.Services;
+using ChatbotMedico.Services.Interfaces;
 using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
 using Google.Cloud.Tasks.V2;
@@ -54,6 +56,8 @@ builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.IWebhookSignatur
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IWebhookGatewayService, ChatbotMedico.Services.WebhookGatewayService>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
 builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
+builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.ISedesRepository, ChatbotMedico.Repository.FirestoreSedesRepository>();
+builder.Services.AddScoped<ICatalogToolService, CatalogToolService>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
 
 // Task Dispatcher

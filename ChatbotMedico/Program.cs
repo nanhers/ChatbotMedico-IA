@@ -28,24 +28,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton(sp =>
 {
     var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("FirestoreDb");
-
-    if (builder.Environment.IsDevelopment())
-    {
-        string projectId = builder.Configuration["Firestore:ProjectId"] ?? "demo-chatbotmedico";
-        string host = builder.Configuration["Firestore:EmulatorHost"] ?? "127.0.0.1";
-        int port = builder.Configuration.GetValue<int?>("Firestore:EmulatorPort") ?? 8080;
-
-        // Forzar emulador SIN ADC: creamos un GrpcChannel inseguro hacia el emulador.
-        // (Con FIRESTORE_EMULATOR_HOST a veces el SDK sigue intentando resolver credenciales.)
-        var channel = GrpcChannel.ForAddress($"http://{host}:{port}");
-        var client = new FirestoreClientBuilder { Endpoint = $"{host}:{port}", ChannelCredentials = Grpc.Core.ChannelCredentials.Insecure }.Build();
-        var db = FirestoreDb.Create(projectId, client);
-
-        logger.LogInformation("Using Firestore Emulator. projectId={ProjectId} host={Host} port={Port}", projectId, host, port);
-        return db;
-    }
-
-    logger.LogInformation("Using Firestore via ADC (non-Development environment)");
+    logger.LogInformation("Using Firestore via ADC");
     return FirestoreDb.Create();
 });
 
@@ -53,8 +36,28 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator, ChatbotMedico.Services.MetaWebhookSignatureValidator>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IWebhookGatewayService, ChatbotMedico.Services.WebhookGatewayService>();
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICalendarService, ChatbotMedico.Services.CalendarService>();
-builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
+var chatHistoryProvider = builder.Configuration["Repository:Provider"] ?? "Firestore";
+if (string.Equals(chatHistoryProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.SqlServerChatHistoryRepository>();
+}
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.IChatHistoryRepository, ChatbotMedico.Repository.FirestoreChatHistoryRepository>();
+}
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
+
+// Catálogos (Sedes)
+var sedesProvider = builder.Configuration["Repository:SedesProvider"] ?? "Firestore";
+if (string.Equals(sedesProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.ISedesRepository, ChatbotMedico.Repository.SqlServerSedesRepository>();
+}
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.ISedesRepository, ChatbotMedico.Repository.FirestoreSedesRepository>();
+}
+builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICatalogToolService, ChatbotMedico.Services.CatalogToolService>();
 
 // Task Dispatcher
 var useTaskDispatcherMock = builder.Configuration.GetValue<bool>("Mocks:UseTaskDispatcherMock");

@@ -84,7 +84,7 @@ public sealed class ChatbotWhatsAppTests
         var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
         signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload(
             from: "5215550000001",
@@ -129,7 +129,7 @@ public sealed class ChatbotWhatsAppTests
         var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
         signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload(
             from: "5215550000002",
@@ -186,7 +186,7 @@ public sealed class ChatbotWhatsAppTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         // El "from" trae símbolos; el historial se identifica solo por dígitos.
         byte[] rawBody = BuildWebhookPayload(from: "+52 1 555 000 0003", body: "Confirmo");
@@ -233,7 +233,7 @@ public sealed class ChatbotWhatsAppTests
             .Setup(x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("firestore down"));
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload(from: "5215550000004", body: "Confirmo");
 
@@ -268,7 +268,7 @@ public sealed class ChatbotWhatsAppTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload(from: "5215550000005", body: "Confirmo");
 

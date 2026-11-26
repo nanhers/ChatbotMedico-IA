@@ -51,7 +51,7 @@ public sealed class ChatbotReplyMessageToolTests
         var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
         signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Quiero una cita" },
@@ -81,7 +81,7 @@ public sealed class ChatbotReplyMessageToolTests
         var signatureValidator = new Mock<ChatbotMedico.Services.Interfaces.IWebhookSignatureValidator>(MockBehavior.Strict);
         signatureValidator.Setup(x => x.IsValid(It.IsAny<byte[]>(), It.IsAny<string?>())).Returns(true);
 
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, signatureValidator.Object, Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
@@ -113,7 +113,7 @@ public sealed class ChatbotReplyMessageToolTests
             });
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
@@ -147,7 +147,7 @@ public sealed class ChatbotReplyMessageToolTests
             });
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
@@ -180,7 +180,7 @@ public sealed class ChatbotReplyMessageToolTests
             });
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
@@ -213,7 +213,7 @@ public sealed class ChatbotReplyMessageToolTests
             });
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         AiToolActionResultDto result = await sut.InterpretAndScheduleAsync(
             new ChatbotMedico.DTOs.AI.AiInterpretRequestDto { PhoneNumber = "user1", Text = "Hola" },
@@ -242,7 +242,7 @@ public sealed class ChatbotReplyMessageToolTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
         int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
@@ -269,7 +269,7 @@ public sealed class ChatbotReplyMessageToolTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload("user1", "mensaje raro");
         int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
@@ -296,7 +296,7 @@ public sealed class ChatbotReplyMessageToolTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
         int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);
@@ -323,7 +323,7 @@ public sealed class ChatbotReplyMessageToolTests
             .Returns(Task.CompletedTask);
 
         var chatHistoryService = new Mock<IChatHistoryService>(MockBehavior.Loose);
-        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), logger);
+        var sut = new ChatBot(llm.Object, calendar.Object, messageClient.Object, chatHistoryService.Object, new AlwaysValidWebhookSignatureValidator(), Mock.Of<ICatalogToolService>(), logger);
 
         byte[] rawBody = BuildWebhookPayload("user1", "Quiero una cita");
         int processed = await sut.ProcessWhatsAppWebhookAsync(rawBody, CancellationToken.None);

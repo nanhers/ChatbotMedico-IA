@@ -64,6 +64,18 @@ else
 }
 builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.IChatHistoryService, ChatbotMedico.Services.ChatHistoryService>();
 
+// Catálogos (Sedes)
+var sedesProvider = builder.Configuration["Repository:SedesProvider"] ?? "Firestore";
+if (string.Equals(sedesProvider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.ISedesRepository, ChatbotMedico.Repository.SqlServerSedesRepository>();
+}
+else
+{
+    builder.Services.AddScoped<ChatbotMedico.Repository.Interfaces.ISedesRepository, ChatbotMedico.Repository.FirestoreSedesRepository>();
+}
+builder.Services.AddScoped<ChatbotMedico.Services.Interfaces.ICatalogToolService, ChatbotMedico.Services.CatalogToolService>();
+
 // Task Dispatcher
 var useTaskDispatcherMock = builder.Configuration.GetValue<bool>("Mocks:UseTaskDispatcherMock");
 if (useTaskDispatcherMock)

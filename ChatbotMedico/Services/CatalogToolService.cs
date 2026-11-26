@@ -79,22 +79,29 @@ public sealed class CatalogToolService : ICatalogToolService
             return string.Empty;
         }
 
+        // Evita doble punto final si la dirección en la tabla ya termina en '.'
+        address = address.TrimEnd('.');
+
         string mapsUrl = BuildGoogleMapsUrl(sede);
 
         var sb = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            sb.AppendLine($"📍 Ubicación: {name}");
-        }
 
-        if (!string.IsNullOrWhiteSpace(address))
+        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(address))
         {
-            sb.AppendLine($"🏥 Dirección: {address}");
+            sb.Append($"El {name} está ubicado en {address}.");
+        }
+        else if (!string.IsNullOrWhiteSpace(name))
+        {
+            sb.Append($"La ubicación corresponde a {name}.");
+        }
+        else
+        {
+            sb.Append($"La ubicación es en {address}.");
         }
 
         if (!string.IsNullOrWhiteSpace(mapsUrl))
         {
-            sb.AppendLine($"🗺️ Google Maps: {mapsUrl}");
+            sb.Append($" También puedes llegar directamente usando este enlace de Google Maps: {mapsUrl}");
         }
 
         return sb.ToString().Trim();

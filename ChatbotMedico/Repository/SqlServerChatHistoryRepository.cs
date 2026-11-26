@@ -16,8 +16,8 @@ public sealed class SqlServerChatHistoryRepository : IChatHistoryRepository
     public SqlServerChatHistoryRepository(IConfiguration configuration, ILogger<SqlServerChatHistoryRepository> logger)
     {
         _logger = logger;
-        _connectionString = configuration.GetConnectionString("ChatHistorySql")
-                            ?? throw new InvalidOperationException("Falta ConnectionStrings:ChatHistorySql");
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+                            ?? throw new InvalidOperationException("Falta ConnectionStrings:DefaultConnection");
     }
 
     public async Task<ChatHistoryConversationDto?> GetAsync(string phoneDigits, CancellationToken ct)

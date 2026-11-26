@@ -28,24 +28,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton(sp =>
 {
     var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("FirestoreDb");
-
-    if (builder.Environment.IsDevelopment())
-    {
-        string projectId = builder.Configuration["Firestore:ProjectId"] ?? "demo-chatbotmedico";
-        string host = builder.Configuration["Firestore:EmulatorHost"] ?? "127.0.0.1";
-        int port = builder.Configuration.GetValue<int?>("Firestore:EmulatorPort") ?? 8080;
-
-        // Forzar emulador SIN ADC: creamos un GrpcChannel inseguro hacia el emulador.
-        // (Con FIRESTORE_EMULATOR_HOST a veces el SDK sigue intentando resolver credenciales.)
-        var channel = GrpcChannel.ForAddress($"http://{host}:{port}");
-        var client = new FirestoreClientBuilder { Endpoint = $"{host}:{port}", ChannelCredentials = Grpc.Core.ChannelCredentials.Insecure }.Build();
-        var db = FirestoreDb.Create(projectId, client);
-
-        logger.LogInformation("Using Firestore Emulator. projectId={ProjectId} host={Host} port={Port}", projectId, host, port);
-        return db;
-    }
-
-    logger.LogInformation("Using Firestore via ADC (non-Development environment)");
+    logger.LogInformation("Using Firestore via ADC");
     return FirestoreDb.Create();
 });
 
